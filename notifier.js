@@ -64,8 +64,17 @@ async function sendSMS(to, body, audioUrl, smsGatewayConfig) {
             body: JSON.stringify(payload)
         });
     } catch (networkErr) {
-        console.error(`[notifier] ✗ Network error: ${networkErr.message}`);
-        throw new Error(`Cannot reach SMS Gateway at ${apiUrl} — check IP/port. (${networkErr.message})`);
+        const cause    = networkErr.cause || networkErr;
+        const errCode  = cause.code    || 'no code';
+        const errMsg   = cause.message || networkErr.message || String(networkErr);
+        console.error(`[notifier] ✗ Network error reaching ${apiUrl}`);
+        console.error(`[notifier]   code:    ${errCode}`);
+        console.error(`[notifier]   message: ${errMsg}`);
+        // ECONNREFUSED = port not open / app not listening
+        // ETIMEDOUT    = host reachable but port blocked by firewall
+        // ENETUNREACH  = Docker can't route to that subnet
+        // ENOTFOUND    = DNS/hostname failed
+        throw new Error(`SMS Gateway unreachable at ${apiUrl} [${errCode}] — ${errMsg}`);
     }
 
     const responseText = await resp.text();
