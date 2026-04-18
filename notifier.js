@@ -1,48 +1,55 @@
-const Client = require('android-sms-gateway');
-
 /**
- * Send an SMS via the SMS Gateway for Android app.
+ * Send an SMS via the SMS Gateway for Android app (sms-gate.app).
+ *
+ * API: POST {base_url}/3rdparty/v1/message  with Basic auth
  *
  * Modes:
- *   Local  — phone runs HTTP server on LAN:  base_url = "http://192.168.0.X:8080/3rdparty/v1"
- *   Cloud  — phone relays via sms-gate.app:  base_url = "https://api.sms-gate.app/3rdparty/v1"
- *            (or leave base_url blank — the SDK defaults to cloud mode)
+ *   Local  — base_url = "http://192.168.0.X:8080"   (phone on same LAN)
+ *   Cloud  — base_url = "https://api.sms-gate.app"  (relay via sms-gate.app)
  *
- * @param {string}      to                  Recipient E.164 phone number e.g. "+15551234567"
- * @param {string}      body                Message text
- * @param {string|null} audioUrl            Optional public URL to an audio file (appended as link)
- * @param {object}      smsGatewayConfig    { base_url, username, password }
+ * @param {string}      to                Recipient E.164 number e.g. "+15551234567"
+ * @param {string}      body              Message text
+ * @param {string|null} audioUrl          Optional audio URL — appended as a plain-text link
+ * @param {object}      smsGatewayConfig  { base_url, username, password }
  */
 async function sendSMS(to, body, audioUrl, smsGatewayConfig) {
     const { base_url, username, password } = smsGatewayConfig || {};
 
-    if (!username || !password) {
-        throw new Error('SMS Gateway is not configured (username and password required).');
+    if (!base_url || !username || !password) {
+        throw new Error('SMS Gateway is not configured (base_url, username, password required).');
     }
 
     if (!to) {
         throw new Error('Recipient phone number is empty.');
     }
 
-    // Append audio link as plain text — SMS Gateway sends standard SMS messages
+    // Append audio link as plain text (standard SMS, no MMS needed)
     let message = body;
     if (audioUrl) {
         message = `${body}\n🔊 ${audioUrl}`;
     }
 
-    // Build client — override baseUrl for local mode, leave undefined for cloud mode
-    // SDK default baseUrl is "https://api.sms-gate.app/3rdparty/v1"
-    const clientArgs = [username, password];
-    if (base_url && base_url.trim()) {
-        // Ensure the path segment is included for local server
-        const normalised = base_url.replace(/\/$/, '');
-        const apiBase = normalised.endsWith('/3rdparty/v1') ? normalised : `${normalised}/3rdparty/v1`;
-        clientArgs.push(undefined, apiBase); // 3rd arg is httpClient (use default), 4th is baseUrl
+    const apiUrl = `${base_url.replace(/\/$/, '')}/3rdparty/v1/message`;
+    const credentials = Buffer.from(`${username}:${password}`).toString('base64');
+
+    const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Basic ${credentials}`
+        },
+        body: JSON.stringify({
+            message,
+            phoneNumbers: [to]
+        })
+    });
+
+    if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`SMS Gateway error ${resp.status}: ${errText}`);
     }
 
-    const client = new Client(...clientArgs);
-    const result = await client.send({ message, phoneNumbers: [to] });
-
+    const result = await resp.json();
     console.log(`[notifier] ✓ SMS sent to ${to} — id: ${result.id}, state: ${result.state}`);
     return result.id;
 }
