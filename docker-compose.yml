@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  notify-tools:
+    image: notify-tools:latest
+    container_name: notify-tools
+    ports:
+      - "8085:8085"
+    volumes:
+      # Persist config and notification history
+      - /mnt/user/appdata/notify-tools/data:/app/data
+      # ElevenLabs TTS audio files — map this to wherever Nginx serves files from
+      - /mnt/user/appdata/notify-tools/audio:/app/audio
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notify Tools — JellyDad</title>
+    <meta name="description" content="Centralized media notification hub for Jellyfin, Sonarr, and Radarr with AI-powered SMS alerts.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-container">
+
+    <!-- ─── Sidebar ─────────────────────────────────────────────── -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <!-- Bell icon -->
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2>Notify Tools</h2>
+                    <span>JellyDad Hub</span>
+                </div>
+            </div>
+        </div>
+
+        <ul class="nav-links">
+            <li class="active" data-tab="tab-jellyfin" id="nav-jellyfin">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Jellyfin
+                <span class="nav-badge" id="badge-jellyfin" style="display:none">ON</span>
+            </li>
+            <li data-tab="tab-arr" id="nav-arr">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                Sonarr / Radarr
+                <span class="nav-badge" id="badge-arr" style="display:none">ON</span>
+            </li>
+            <li data-tab="tab-settings" id="nav-settings">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                Settings
+            </li>
+        </ul>
+    </nav>
+
+    <!-- ─── Main Content ─────────────────────────────────────────── -->
+    <main class="content">
+
+        <!-- Header -->
+        <header class="top-header">
+            <div>
+                <h1 id="page-title">Jellyfin Notifier</h1>
+                <p id="page-subtitle" class="text-muted">Notify family members when new content appears on JellyDad.</p>
+            </div>
+            <div class="header-actions">
+                <button id="btn-save" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    Save Configuration
+                </button>
+            </div>
+        </header>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             TAB 1: JELLYFIN
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="tab-jellyfin" class="tab-content active">
+
+            <div class="grid-2">
+
+                <!-- Left: Enable + Webhook URL -->
+                <div>
+                    <div class="card mb-3">
+                        <h3>Integration Status</h3>
+                        <p class="card-subtitle">Enable or disable the Jellyfin webhook handler.</p>
+
+                        <div class="toggle-row mt-2">
+                            <div class="toggle-info">
+                                <strong>Jellyfin Notifier</strong>
+                                <span>Listen for ItemAdded events</span>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="jellyfin-enable">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="webhook-box">
+                            <div class="webhook-label">Webhook URL — paste into Jellyfin</div>
+                            <div class="webhook-row">
+                                <span class="webhook-badge post">POST</span>
+                                <span class="webhook-url" id="jellyfin-webhook-url">loading...</span>
+                                <button class="copy-btn" onclick="copyText('jellyfin-webhook-url')">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Jellyfin Server</h3>
+                        <p class="card-subtitle">URL and API key for fetching media tags.</p>
+                        <div class="form-group">
+                            <label>Jellyfin URL</label>
+                            <input type="text" id="jellyfin-url" class="form-control" placeholder="http://192.168.0.87:8096">
+                        </div>
+                        <div class="form-group">
+                            <label>API Key</label>
+                            <input type="text" id="jellyfin-api-key" class="form-control" placeholder="043a53a028ae4b07a2b7607bcb562e8e">
+                            <p class="form-hint">Dashboard → Administration → API Keys</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Notify Map + Seerr Map -->
+                <div>
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <div>
+                                <h3>Notify Tag Map</h3>
+                                <p class="card-subtitle mt-2">Map each Jellyfin tag to a phone number. Tags must match exactly what's set on items in Jellyfin.</p>
+                            </div>
+                            <button class="btn btn-sm btn-outline" id="btn-add-notify-row">+ Add Tag</button>
+                        </div>
+                        <table class="map-table" id="notify-map-table">
+                            <thead>
+                                <tr>
+                                    <th>Tag Name</th>
+                                    <th>Phone Number (E.164)</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="notify-map-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                        <p class="form-hint mt-2">Format: <code>+15551234567</code> — Twilio requires E.164 format.</p>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3>Overseerr User Map</h3>
+                                <p class="card-subtitle mt-2">Map Overseerr/Jellyseerr usernames to notify tags so requesters get personal alerts.</p>
+                            </div>
+                            <button class="btn btn-sm btn-outline" id="btn-add-seerr-row">+ Add User</button>
+                        </div>
+                        <table class="map-table" id="seerr-map-table">
+                            <thead>
+                                <tr>
+                                    <th>Overseerr Username</th>
+                                    <th>Maps To Tag</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="seerr-map-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             TAB 2: SONARR / RADARR
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="tab-arr" class="tab-content">
+
+            <div class="grid-2">
+
+                <!-- Left col: toggles + webhook URLs -->
+                <div>
+                    <div class="card mb-3">
+                        <h3>Sonarr</h3>
+                        <p class="card-subtitle">Fires when a new TV series is added to Sonarr.</p>
+
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <strong>Sonarr Notifier</strong>
+                                <span>On Series Add events</span>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="sonarr-enable">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="webhook-box">
+                            <div class="webhook-label">Sonarr webhook URL</div>
+                            <div class="webhook-row">
+                                <span class="webhook-badge post">POST</span>
+                                <span class="webhook-url" id="sonarr-webhook-url">loading...</span>
+                                <button class="copy-btn" onclick="copyText('sonarr-webhook-url')">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group mt-3">
+                            <label>Recipients</label>
+                            <input type="text" id="sonarr-recipients" class="form-control" placeholder="all">
+                            <p class="form-hint">Enter <code>all</code> or comma-separated tags: <code>notify-dad,notify-anna</code></p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>Radarr</h3>
+                        <p class="card-subtitle">Fires when a new movie is added to Radarr.</p>
+
+                        <div class="toggle-row">
+                            <div class="toggle-info">
+                                <strong>Radarr Notifier</strong>
+                                <span>On Movie Added events</span>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="radarr-enable">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="webhook-box">
+                            <div class="webhook-label">Radarr webhook URL</div>
+                            <div class="webhook-row">
+                                <span class="webhook-badge post">POST</span>
+                                <span class="webhook-url" id="radarr-webhook-url">loading...</span>
+                                <button class="copy-btn" onclick="copyText('radarr-webhook-url')">Copy</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group mt-3">
+                            <label>Recipients</label>
+                            <input type="text" id="radarr-recipients" class="form-control" placeholder="all">
+                            <p class="form-hint">Enter <code>all</code> or comma-separated tags: <code>notify-dad,notify-anna</code></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right col: AI + Audio -->
+                <div>
+                    <div class="card mb-3">
+                        <h3>🤖 Gemini AI Personality</h3>
+                        <p class="card-subtitle">This prompt is prepended before asking Gemini to write the notification message. Make JellyDad sound exactly how you want.</p>
+                        <div class="form-group">
+                            <label>Personality Prompt</label>
+                            <textarea id="arr-gemini-personality" class="form-control" rows="5" placeholder="You are JellyDad, an enthusiastic home media server announcer. Keep messages short and family-friendly."></textarea>
+                            <p class="form-hint">Gemini will generate a fun, personalized SMS announcement. Without a Gemini API key (see Settings), a default template message is used instead.</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>🔊 ElevenLabs TTS Audio</h3>
+                        <p class="card-subtitle">When configured, Gemini's script is converted to audio and sent as an MMS attachment via Nginx. Optional — falls back to text-only SMS if not set.</p>
+
+                        <div class="info-box blue mb-3">
+                            The audio file will be saved to <code>/app/audio</code> inside the container. Map this volume to a path your Nginx instance serves publicly. Twilio will include the audio as an MMS attachment.
+                        </div>
+
+                        <div class="form-group">
+                            <label>Public Audio Base URL</label>
+                            <input type="text" id="arr-audio-base-url" class="form-control" placeholder="https://yourdomain.com/audio">
+                            <p class="form-hint">Full public URL to the directory where audio files are served. Must be accessible from the internet for Twilio MMS.</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             TAB 3: SETTINGS
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="tab-settings" class="tab-content">
+
+            <div class="grid-2">
+
+                <!-- Left: Twilio -->
+                <div>
+                    <div class="card mb-3">
+                        <h3>📱 Twilio — SMS / MMS</h3>
+                        <p class="card-subtitle">Your Twilio credentials. All notifications are delivered via this account.</p>
+
+                        <div class="form-group">
+                            <label>Account SID</label>
+                            <input type="text" id="twilio-sid" class="form-control" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                        </div>
+                        <div class="form-group">
+                            <label>Auth Token</label>
+                            <input type="password" id="twilio-token" class="form-control" placeholder="••••••••••••••••••••••••••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label>From Number</label>
+                            <input type="text" id="twilio-from" class="form-control" placeholder="+15551234567">
+                            <p class="form-hint">Your Twilio phone number in E.164 format. This shows as the sender on all messages. Tip: save it in family contacts as "JellyDad 🎬".</p>
+                        </div>
+                    </div>
+
+                    <!-- Test SMS -->
+                    <div class="card">
+                        <h3>🧪 Test SMS</h3>
+                        <p class="card-subtitle">Send a test message to verify Twilio is configured correctly.</p>
+                        <div class="form-grid-2 mt-2">
+                            <div class="form-group">
+                                <label>Send to Tag</label>
+                                <select id="test-sms-tag" class="form-control">
+                                    <option value="">— select tag —</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="display:flex;align-items:flex-end;">
+                                <button id="btn-test-sms" class="btn btn-secondary w-full">Send Test SMS</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: API Keys -->
+                <div>
+                    <div class="card mb-3">
+                        <h3>✨ ElevenLabs</h3>
+                        <p class="card-subtitle">Used for TTS audio generation in the Sonarr/Radarr tool. Leave blank to send text-only SMS.</p>
+                        <div class="form-group">
+                            <label>API Key</label>
+                            <input type="password" id="elevenlabs-key" class="form-control" placeholder="••••••••••••••••••••••••••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label>Voice ID</label>
+                            <input type="text" id="elevenlabs-voice-id" class="form-control" placeholder="EXAVITQu4vr4xnSDxMaL">
+                            <p class="form-hint">Find voice IDs in your <a href="https://elevenlabs.io/app/voice-library" target="_blank" style="color:var(--accent)">ElevenLabs Voice Library</a>. Default is "Bella".</p>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <h3>🧠 Gemini AI</h3>
+                        <p class="card-subtitle">Used to generate personalized notification scripts. Without this, a built-in template message is used.</p>
+                        <div class="form-group">
+                            <label>API Key</label>
+                            <input type="password" id="gemini-key" class="form-control" placeholder="AIza••••••••••••••••••••••••••••••">
+                            <p class="form-hint">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">Google AI Studio</a>.</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>📋 System Info</h3>
+                        <p class="card-subtitle">Current application status.</p>
+                        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">API Status</span>
+                                <span class="status-pill online">Online</span>
+                            </div>
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">Config Path</span>
+                                <code>/app/data/config.json</code>
+                            </div>
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">Jellyfin History</span>
+                                <code>/app/data/jellyfin_history.json</code>
+                            </div>
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">Arr History</span>
+                                <code>/app/data/arr_history.json</code>
+                            </div>
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">Audio Files</span>
+                                <code>/app/audio/</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# ─── Step 1: Initialize git repo (run from c:\antigravity\notify_tools) ────────
+
+git init
+git add .
+git commit -m "Initial commit: notify_tools v1.0"
+
+# ─── Step 2: Create the GitHub repo via GitHub CLI (if you have it) ────────────
+# If not, just go to https://github.com/new and create "notify_tools" (Public, no README)
+
+# ─── Step 3: Add remote and push ──────────────────────────────────────────────
+
+git remote add origin https://github.com/schaff150/notify_tools.git
+git branch -M main
+git push -u origin main
+
+# ─── That's it! ───────────────────────────────────────────────────────────────
+# GitHub Actions will automatically trigger on that push.
+# The image will be built and pushed to:
+#   ghcr.io/schaff150/notify_tools:latest
+#
+# Make the GHCR package public after the first build:
+#   GitHub → your profile → Packages → notify_tools → Package settings → Change visibility → Public
+#
+# ─── unRAID Docker template ───────────────────────────────────────────────────
+# Repository:    ghcr.io/schaff150/notify_tools:latest
+# Port mapping:  8085 → 8085 (TCP)
+# Volume 1:      /mnt/user/appdata/notify-tools/data  →  /app/data
+# Volume 2:      /mnt/user/appdata/notify-tools/audio →  /app/audio

@@ -1,0 +1,228 @@
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+
+console.log('=== Notify Tools server.js v1.0 ===');
+
+const app = express();
+const PORT = process.env.PORT || 8085;
+
+app.use(cors());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ─── Directory Setup ──────────────────────────────────────────────────────────
+
+const dataDir = path.join(__dirname, 'data');
+const audioDir = path.join(__dirname, 'audio');
+[dataDir, audioDir].forEach(d => {
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+});
+
+// ─── Config Bootstrap ─────────────────────────────────────────────────────────
+
+const configFile = path.join(dataDir, 'config.json');
+
+const defaultConfig = {
+    // Global user → phone mapping (used by ALL tools)
+    notify_map: [
+        { tag: 'notify-dad', phone: '' },
+        { tag: 'notify-anna', phone: '' },
+        { tag: 'notify-jack', phone: '' },
+        { tag: 'notify-gin', phone: '' }
+    ],
+    // Overseerr username → notify tag mapping
+    seerr_user_map: [
+        { seerr_username: '1-geocode',   tag: 'notify-dad' },
+        { seerr_username: '2-jellyanna', tag: 'notify-anna' },
+        { seerr_username: '4-jellyjack', tag: 'notify-jack' },
+        { seerr_username: '3-jellygin',  tag: 'notify-gin' }
+    ],
+    jellyfin: {
+        enable: false,
+        url: 'http://192.168.0.87:8096',
+        api_key: ''
+    },
+    sonarr: {
+        enable: false,
+        recipients: 'all'   // 'all' or comma-separated tag names e.g. 'notify-dad,notify-anna'
+    },
+    radarr: {
+        enable: false,
+        recipients: 'all'
+    },
+    arr: {
+        gemini_personality: 'You are JellyDad, an enthusiastic and fun home media server announcer. Keep messages short and family-friendly.',
+        audio_base_url: ''  // e.g. https://yourdomain.com/audio — must be publicly accessible for MMS
+    },
+    twilio: {
+        account_sid: '',
+        auth_token: '',
+        from_number: ''     // E.164 format, e.g. +15551234567
+    },
+    elevenlabs: {
+        api_key: '',
+        voice_id: 'EXAVITQu4vr4xnSDxMaL'  // Default: "Bella" voice
+    },
+    gemini: {
+        api_key: ''
+    }
+};
+
+// Initialize config if missing, otherwise non-destructively merge new defaults
+if (!fs.existsSync(configFile)) {
+    fs.writeFileSync(configFile, JSON.stringify(defaultConfig, null, 2));
+    console.log('[config] Created default config.json');
+} else {
+    try {
+        const existing = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        let changed = false;
+        for (const key of Object.keys(defaultConfig)) {
+            if (existing[key] === undefined) {
+                existing[key] = defaultConfig[key];
+                changed = true;
+                console.log(`[config] Seeded missing key: ${key}`);
+            }
+        }
+        if (changed) fs.writeFileSync(configFile, JSON.stringify(existing, null, 2));
+    } catch (e) {
+        console.error('[config] Merge error:', e.message);
+    }
+}
+
+// ─── Load Workflows ───────────────────────────────────────────────────────────
+
+const { handleJellyfinWebhook } = require('./workflows/jellyfin');
+const { handleArrWebhook }      = require('./workflows/arr_webhook');
+
+// ─── Config API ───────────────────────────────────────────────────────────────
+
+app.get('/api/config', (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        res.json(config);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to read config' });
+    }
+});
+
+app.post('/api/config', (req, res) => {
+    try {
+        fs.writeFileSync(configFile, JSON.stringify(req.body, null, 2));
+        console.log('[config] Configuration saved.');
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to write config' });
+    }
+});
+
+// ─── Webhook Routes ───────────────────────────────────────────────────────────
+
+app.post('/api/webhooks/jellyfin', async (req, res) => {
+    // Always respond 200 immediately so Jellyfin doesn't retry
+    res.status(200).send('OK');
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        if (!config.jellyfin?.enable) {
+            console.log('[jellyfin] Webhook received but tool is disabled.');
+            return;
+        }
+        await handleJellyfinWebhook(req.body, config, dataDir);
+    } catch (e) {
+        console.error('[jellyfin webhook] Unhandled error:', e.message);
+    }
+});
+
+app.post('/api/webhooks/sonarr', async (req, res) => {
+    res.status(200).send('OK');
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        if (!config.sonarr?.enable) {
+            console.log('[sonarr] Webhook received but tool is disabled.');
+            return;
+        }
+        await handleArrWebhook(req.body, config, 'sonarr', audioDir, dataDir);
+    } catch (e) {
+        console.error('[sonarr webhook] Unhandled error:', e.message);
+    }
+});
+
+app.post('/api/webhooks/radarr', async (req, res) => {
+    res.status(200).send('OK');
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        if (!config.radarr?.enable) {
+            console.log('[radarr] Webhook received but tool is disabled.');
+            return;
+        }
+        await handleArrWebhook(req.body, config, 'radarr', audioDir, dataDir);
+    } catch (e) {
+        console.error('[radarr webhook] Unhandled error:', e.message);
+    }
+});
+
+// ─── Test / Utility API ───────────────────────────────────────────────────────
+
+// Send a test SMS to a specific tag's phone number
+app.post('/api/test/sms', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const { tag } = req.body;
+        const { sendSMS } = require('./notifier');
+
+        const entry = (config.notify_map || []).find(m => m.tag === tag);
+        if (!entry?.phone) {
+            return res.status(400).json({ error: `Tag "${tag}" not found or has no phone number configured.` });
+        }
+
+        await sendSMS(
+            entry.phone,
+            '🎬 JellyDad is online! Test notification working perfectly.',
+            null,
+            config.twilio
+        );
+        res.json({ success: true, message: `Test SMS sent to ${entry.phone}` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Simulate a Jellyfin ItemAdded event for testing
+app.post('/api/test/jellyfin-mock', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const { type, tag } = req.body; // type: 'movie' | 'episode'
+
+        const mockMovie = {
+            NotificationType: 'ItemAdded',
+            Name: 'The Grand Budapest Hotel',
+            ItemId: 'mock-item-id',
+            Tags: [tag || 'notify-dad']
+        };
+        const mockEpisode = {
+            NotificationType: 'ItemAdded',
+            Name: 'Pilot',
+            SeriesName: 'Breaking Bad',
+            SeasonNumber: 1,
+            EpisodeNumber: 1,
+            ItemId: 'mock-item-id',
+            Tags: [tag || 'notify-dad']
+        };
+
+        const payload = type === 'episode' ? mockEpisode : mockMovie;
+        await handleJellyfinWebhook(payload, config, dataDir);
+        res.json({ success: true, message: 'Mock Jellyfin webhook processed. Check server logs.' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ─── Start Server ─────────────────────────────────────────────────────────────
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Notify Tools running on port ${PORT}`);
+    console.log(`  Jellyfin webhook: POST /api/webhooks/jellyfin`);
+    console.log(`  Sonarr webhook:   POST /api/webhooks/sonarr`);
+    console.log(`  Radarr webhook:   POST /api/webhooks/radarr`);
+});
