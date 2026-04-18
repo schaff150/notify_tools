@@ -1,44 +1,50 @@
-const twilio = require('twilio');
+const Client = require('android-sms-gateway');
 
 /**
- * Send an SMS or MMS message via Twilio.
+ * Send an SMS via the SMS Gateway for Android app.
  *
- * @param {string} to           - Recipient E.164 phone number (e.g. "+15551234567")
- * @param {string} body         - Message body text
- * @param {string|null} mediaUrl - Optional publicly-accessible URL for MMS attachment (audio, image)
- * @param {object} twilioConfig  - { account_sid, auth_token, from_number }
- * @returns {string} Twilio message SID
+ * Modes:
+ *   Local  — phone runs HTTP server on LAN:  base_url = "http://192.168.0.X:8080/3rdparty/v1"
+ *   Cloud  — phone relays via sms-gate.app:  base_url = "https://api.sms-gate.app/3rdparty/v1"
+ *            (or leave base_url blank — the SDK defaults to cloud mode)
+ *
+ * @param {string}      to                  Recipient E.164 phone number e.g. "+15551234567"
+ * @param {string}      body                Message text
+ * @param {string|null} audioUrl            Optional public URL to an audio file (appended as link)
+ * @param {object}      smsGatewayConfig    { base_url, username, password }
  */
-async function sendSMS(to, body, mediaUrl, twilioConfig) {
-    const { account_sid, auth_token, from_number } = twilioConfig || {};
+async function sendSMS(to, body, audioUrl, smsGatewayConfig) {
+    const { base_url, username, password } = smsGatewayConfig || {};
 
-    if (!account_sid || !auth_token || !from_number) {
-        throw new Error('Twilio credentials are not fully configured (account_sid, auth_token, from_number required).');
+    if (!username || !password) {
+        throw new Error('SMS Gateway is not configured (username and password required).');
     }
 
     if (!to) {
         throw new Error('Recipient phone number is empty.');
     }
 
-    const client = twilio(account_sid, auth_token);
-
-    const params = {
-        body,
-        from: from_number,
-        to
-    };
-
-    // If a media URL is provided, Twilio will send as MMS
-    if (mediaUrl) {
-        params.mediaUrl = [mediaUrl];
-        console.log(`[notifier] Sending MMS to ${to} with media: ${mediaUrl}`);
-    } else {
-        console.log(`[notifier] Sending SMS to ${to}`);
+    // Append audio link as plain text — SMS Gateway sends standard SMS messages
+    let message = body;
+    if (audioUrl) {
+        message = `${body}\n🔊 ${audioUrl}`;
     }
 
-    const message = await client.messages.create(params);
-    console.log(`[notifier] ✓ Sent to ${to} — SID: ${message.sid}`);
-    return message.sid;
+    // Build client — override baseUrl for local mode, leave undefined for cloud mode
+    // SDK default baseUrl is "https://api.sms-gate.app/3rdparty/v1"
+    const clientArgs = [username, password];
+    if (base_url && base_url.trim()) {
+        // Ensure the path segment is included for local server
+        const normalised = base_url.replace(/\/$/, '');
+        const apiBase = normalised.endsWith('/3rdparty/v1') ? normalised : `${normalised}/3rdparty/v1`;
+        clientArgs.push(undefined, apiBase); // 3rd arg is httpClient (use default), 4th is baseUrl
+    }
+
+    const client = new Client(...clientArgs);
+    const result = await client.send({ message, phoneNumbers: [to] });
+
+    console.log(`[notifier] ✓ SMS sent to ${to} — id: ${result.id}, state: ${result.state}`);
+    return result.id;
 }
 
 module.exports = { sendSMS };

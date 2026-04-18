@@ -139,7 +139,7 @@ async function handleJellyfinWebhook(data, config, dataDir) {
 
         try {
             const message = buildMessage(data);
-            await sendSMS(phone, message, null, config.twilio);
+            await sendSMS(phone, message, null, config.sms_gateway);
             history.push(histKey);
             sentCount++;
 

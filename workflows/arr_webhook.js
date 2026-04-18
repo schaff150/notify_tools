@@ -239,7 +239,7 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
     let sentCount = 0;
     for (const phone of recipientPhones) {
         try {
-            await sendSMS(phone, messageText, audioUrl, config.twilio);
+            await sendSMS(phone, messageText, audioUrl, config.sms_gateway);
             sentCount++;
         } catch (e) {
             log(`[${type}] Error sending to ${phone}: ${e.message}`);

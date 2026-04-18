@@ -56,10 +56,10 @@ const defaultConfig = {
         gemini_personality: 'You are JellyDad, an enthusiastic and fun home media server announcer. Keep messages short and family-friendly.',
         audio_base_url: ''  // e.g. https://yourdomain.com/audio — must be publicly accessible for MMS
     },
-    twilio: {
-        account_sid: '',
-        auth_token: '',
-        from_number: ''     // E.164 format, e.g. +15551234567
+    sms_gateway: {
+        base_url:  '',   // Local: "http://192.168.0.X:8080"  |  Cloud: "https://api.sms-gate.app"
+        username:  '',   // Shown on the app Home screen
+        password:  ''    // Shown on the app Home screen
     },
     elevenlabs: {
         api_key: '',
@@ -180,7 +180,7 @@ app.post('/api/test/sms', async (req, res) => {
             entry.phone,
             '🎬 JellyDad is online! Test notification working perfectly.',
             null,
-            config.twilio
+            config.sms_gateway
         );
         res.json({ success: true, message: `Test SMS sent to ${entry.phone}` });
     } catch (e) {

@@ -286,25 +286,32 @@
                 <!-- Left: Twilio -->
                 <div>
                     <div class="card mb-3">
-                        <h3>📱 Twilio — SMS / MMS</h3>
-                        <p class="card-subtitle">Your Twilio credentials. All notifications are delivered via this account.</p>
+                        <h3>📱 SMS Gateway for Android</h3>
+                        <p class="card-subtitle">Install the free <a href="https://sms-gate.app" target="_blank" style="color:var(--accent)">SMS Gateway</a> app on your Android phone. Open the app, tap <strong>Local server</strong>, and copy the credentials shown on the Home screen.</p>
+
+                        <div class="info-box blue mb-3">
+                            <strong>Local mode</strong> (recommended): Base URL is <code>http://[phone-ip]:8080</code> — texts send from your own phone number over LAN.<br><br>
+                            <strong>Cloud mode</strong>: Use <code>https://api.sms-gate.app</code> — works away from home but routes through sms-gate.app cloud.
+                        </div>
 
                         <div class="form-group">
-                            <label>Account SID</label>
-                            <input type="text" id="twilio-sid" class="form-control" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                            <label>Base URL</label>
+                            <input type="text" id="sms-gw-url" class="form-control" placeholder="http://192.168.0.X:8080">
+                            <p class="form-hint">Shown in the app under Local server or use <code>https://api.sms-gate.app</code> for cloud mode.</p>
                         </div>
-                        <div class="form-group">
-                            <label>Auth Token</label>
-                            <input type="password" id="twilio-token" class="form-control" placeholder="••••••••••••••••••••••••••••••••">
-                        </div>
-                        <div class="form-group">
-                            <label>From Number</label>
-                            <input type="text" id="twilio-from" class="form-control" placeholder="+15551234567">
-                            <p class="form-hint">Your Twilio phone number in E.164 format. This shows as the sender on all messages. Tip: save it in family contacts as "JellyDad 🎬".</p>
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label>Username</label>
+                                <input type="text" id="sms-gw-user" class="form-control" placeholder="username from app">
+                            </div>
+                            <div class="form-group">
+                                <label>Password</label>
+                                <input type="password" id="sms-gw-pass" class="form-control" placeholder="password from app">
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Test SMS -->
+                    <!-- Test SMS (shared) -->
                     <div class="card">
                         <h3>🧪 Test SMS</h3>
                         <p class="card-subtitle">Send a test message to verify Twilio is configured correctly.</p>

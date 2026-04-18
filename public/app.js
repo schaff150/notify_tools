@@ -95,10 +95,10 @@ function populateUI(cfg) {
     setVal('arr-gemini-personality', cfg.arr?.gemini_personality ?? '');
     setVal('arr-audio-base-url',     cfg.arr?.audio_base_url    ?? '');
 
-    // ── Settings
-    setVal('twilio-sid',             cfg.twilio?.account_sid ?? '');
-    setVal('twilio-token',           cfg.twilio?.auth_token  ?? '');
-    setVal('twilio-from',            cfg.twilio?.from_number ?? '');
+    // ── SMS Gateway
+    setVal('sms-gw-url',             cfg.sms_gateway?.base_url  ?? '');
+    setVal('sms-gw-user',            cfg.sms_gateway?.username  ?? '');
+    setVal('sms-gw-pass',            cfg.sms_gateway?.password  ?? '');
     setVal('elevenlabs-key',         cfg.elevenlabs?.api_key  ?? '');
     setVal('elevenlabs-voice-id',    cfg.elevenlabs?.voice_id ?? '');
     setVal('gemini-key',             cfg.gemini?.api_key      ?? '');
@@ -176,10 +176,10 @@ function buildConfigFromUI() {
             gemini_personality: getVal('arr-gemini-personality'),
             audio_base_url:     getVal('arr-audio-base-url')
         },
-        twilio: {
-            account_sid: getVal('twilio-sid'),
-            auth_token:  getVal('twilio-token'),
-            from_number: getVal('twilio-from')
+        sms_gateway: {
+            base_url: getVal('sms-gw-url'),
+            username: getVal('sms-gw-user'),
+            password: getVal('sms-gw-pass')
         },
         elevenlabs: {
             api_key:  getVal('elevenlabs-key'),
