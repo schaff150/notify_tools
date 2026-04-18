@@ -19,25 +19,49 @@ function saveHistory(historyFile, history) {
     catch (e) { log(`Error saving history: ${e.message}`); }
 }
 
-// ─── Gemini AI Text Generation ────────────────────────────────────────────────
+// ─── Name Extraction ──────────────────────────────────────────────────────────
 
-async function generateGeminiScript(personality, mediaInfo, apiKey) {
+/**
+ * Extract a display name from a notify tag.
+ * "notify-dad"  → "Dad"
+ * "notify-anna" → "Anna"
+ */
+function extractName(tag) {
+    const parts = tag.split('-');
+    if (parts.length >= 2) {
+        const raw = parts.slice(1).join(' ');
+        return raw.charAt(0).toUpperCase() + raw.slice(1);
+    }
+    return tag;
+}
+
+// ─── Gemini Voice Script Generation ──────────────────────────────────────────
+
+/**
+ * Ask Gemini to write a spoken voice announcement tailored to one recipient.
+ * This is meant to be read aloud by ElevenLabs, not sent as an SMS body,
+ * so it can be conversational, expressive, and longer than 160 chars.
+ */
+async function generateVoiceScript(personality, mediaInfo, recipientName, apiKey) {
     if (!apiKey) {
-        log('No Gemini API key — using fallback message.');
+        log(`No Gemini API key — using fallback for ${recipientName}.`);
         return null;
     }
 
-    const genreStr = (mediaInfo.genres || []).join(', ') || 'Unknown';
-    const typeLabel = mediaInfo.type === 'series' ? 'TV Series' : 'Movie';
+    const genreStr  = (mediaInfo.genres || []).join(', ') || 'Unknown';
+    const typeLabel = mediaInfo.type === 'series' ? 'TV series' : 'movie';
 
     const prompt =
         `${personality}\n\n` +
-        `Write a short, fun, enthusiastic SMS announcement (under 160 characters) ` +
-        `for this new ${typeLabel} that was just added to the JellyDad media server:\n\n` +
+        `Write a short, enthusiastic, personalized voice announcement for ${recipientName}. ` +
+        `This will be spoken aloud as a voice message (text-to-speech), so make it conversational, ` +
+        `warm, and expressive — 2 to 3 sentences. Address ${recipientName} by name. ` +
+        `Do NOT use emojis (they won't sound good when spoken). No hashtags.\n\n` +
+        `A new ${typeLabel} was just added to the JellyDad media server:\n` +
         `Title: ${mediaInfo.title}\n` +
         `Year: ${mediaInfo.year}\n` +
         `Genres: ${genreStr}\n\n` +
-        `Write ONLY the message text. No quotes, no labels, just the message.`;
+        `Write ONLY the spoken script. No quotes, no labels — just the words to be spoken.`;
 
     try {
         const resp = await fetch(
@@ -47,7 +71,7 @@ async function generateGeminiScript(personality, mediaInfo, apiKey) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { maxOutputTokens: 120, temperature: 0.9 }
+                    generationConfig: { maxOutputTokens: 200, temperature: 0.9 }
                 })
             }
         );
@@ -61,7 +85,7 @@ async function generateGeminiScript(personality, mediaInfo, apiKey) {
         const data = await resp.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (text) {
-            log(`Gemini generated: "${text}"`);
+            log(`Gemini script for ${recipientName}: "${text.substring(0, 80)}…"`);
             return text;
         }
     } catch (e) {
@@ -70,13 +94,24 @@ async function generateGeminiScript(personality, mediaInfo, apiKey) {
     return null;
 }
 
+// ─── Fallback Script (no Gemini) ─────────────────────────────────────────────
+
+function buildFallbackScript(mediaInfo, recipientName) {
+    const typeStr = mediaInfo.type === 'series' ? 'a new TV series' : 'a new movie';
+    return `Hey ${recipientName}! JellyDad here. Just wanted to let you know that ${mediaInfo.title} ` +
+           `has just been added to the media server. Hope you enjoy it!`;
+}
+
 // ─── ElevenLabs TTS Generation ────────────────────────────────────────────────
 
-async function generateElevenLabsAudio(text, elevenConfig, audioDir) {
+async function generateElevenLabsAudio(script, elevenConfig, audioDir, recipientName) {
     const { api_key, voice_id } = elevenConfig || {};
-    if (!api_key || !voice_id || !text) return null;
+    if (!api_key || !voice_id || !script) return null;
 
-    log(`Requesting TTS for: "${text.substring(0, 60)}..."`);
+    const safeName = (recipientName || 'shared').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const filename = `jellydad_${safeName}_${Date.now()}.mp3`;
+
+    log(`Requesting TTS for ${recipientName}: "${script.substring(0, 60)}…"`);
 
     try {
         const resp = await fetch(
@@ -84,17 +119,17 @@ async function generateElevenLabsAudio(text, elevenConfig, audioDir) {
             {
                 method: 'POST',
                 headers: {
-                    'xi-api-key': api_key,
+                    'xi-api-key':   api_key,
                     'Content-Type': 'application/json',
-                    'Accept': 'audio/mpeg'
+                    'Accept':       'audio/mpeg'
                 },
                 body: JSON.stringify({
-                    text,
+                    text: script,
                     model_id: 'eleven_multilingual_v2',
                     voice_settings: {
-                        stability: 0.5,
+                        stability:        0.5,
                         similarity_boost: 0.75,
-                        style: 0.4,
+                        style:            0.4,
                         use_speaker_boost: true
                     }
                 })
@@ -108,33 +143,27 @@ async function generateElevenLabsAudio(text, elevenConfig, audioDir) {
         }
 
         const audioBuffer = Buffer.from(await resp.arrayBuffer());
-        const filename = `jellydad_${Date.now()}.mp3`;
         const filePath = path.join(audioDir, filename);
         fs.writeFileSync(filePath, audioBuffer);
-        log(`Audio saved: ${filename} (${audioBuffer.length} bytes)`);
+        log(`Audio saved for ${recipientName}: ${filename} (${audioBuffer.length} bytes)`);
         return filename;
+
     } catch (e) {
         log(`ElevenLabs fetch error: ${e.message}`);
         return null;
     }
 }
 
-// ─── Fallback Message (no Gemini) ─────────────────────────────────────────────
-
-function buildFallbackMessage(mediaInfo) {
-    const emoji = mediaInfo.type === 'series' ? '📺' : '🎬';
-    return `${emoji} JellyDad Alert! "${mediaInfo.title}" (${mediaInfo.year}) just added to the server!`;
-}
-
 // ─── Main Handler ─────────────────────────────────────────────────────────────
 
 /**
  * Handle a Sonarr (Series Add) or Radarr (Movie Added) webhook.
- * @param {object} data       - Raw webhook payload from Sonarr/Radarr
- * @param {object} config     - Full app config
- * @param {'sonarr'|'radarr'} type
- * @param {string} audioDir   - Absolute path to /app/audio
- * @param {string} dataDir    - Absolute path to /app/data
+ *
+ * Per-recipient flow:
+ *   1. Gemini writes a personalized spoken script for each person by name
+ *   2. ElevenLabs converts it to a unique audio file per person
+ *   3. SMS is sent with just the audio link (no text body other than a teaser line)
+ *      Falls back gracefully if Gemini or ElevenLabs are not configured.
  */
 async function handleArrWebhook(data, config, type, audioDir, dataDir) {
     const historyFile = path.join(dataDir, 'arr_history.json');
@@ -165,7 +194,6 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
     }
 
     const eventType = data.eventType || '';
-    // Allow through if eventType is missing (some webhook test payloads omit it)
     if (eventType && eventType !== expectedEvent) {
         log(`[${type}] Ignored event type: "${eventType}" (expected "${expectedEvent}")`);
         return;
@@ -179,17 +207,17 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
     const notifyMap = {};
     (config.notify_map || []).forEach(m => { if (m.phone) notifyMap[m.tag] = m.phone; });
 
-    let recipientPhones = [];
+    let recipientPairs = []; // [{tag, phone}]
     if (!arrConfig.recipients || arrConfig.recipients === 'all') {
-        // Notify everyone with a configured phone number
-        recipientPhones = Object.values(notifyMap);
+        recipientPairs = Object.entries(notifyMap).map(([tag, phone]) => ({ tag, phone }));
     } else {
-        // arrConfig.recipients is a comma-separated string of tags
         const tags = String(arrConfig.recipients).split(',').map(t => t.trim()).filter(Boolean);
-        recipientPhones = tags.map(tag => notifyMap[tag]).filter(Boolean);
+        recipientPairs = tags
+            .filter(tag => notifyMap[tag])
+            .map(tag => ({ tag, phone: notifyMap[tag] }));
     }
 
-    if (recipientPhones.length === 0) {
+    if (recipientPairs.length === 0) {
         log(`[${type}] No recipients configured or no phone numbers set.`);
         return;
     }
@@ -204,45 +232,52 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
         return;
     }
 
-    // ── Generate AI message text ─────────────────────────────────────────────
+    // ── Per-recipient: script → audio → SMS ─────────────────────────────────
 
-    const arrCfg = config.arr || {};
-    let messageText = await generateGeminiScript(
-        arrCfg.gemini_personality || 'You are JellyDad, an enthusiastic home media announcer.',
-        mediaInfo,
-        config.gemini?.api_key
-    );
-
-    if (!messageText) {
-        messageText = buildFallbackMessage(mediaInfo);
-    }
-
-    // ── Generate ElevenLabs audio (optional) ─────────────────────────────────
-
-    let audioUrl = null;
-    const hasElevenLabs = config.elevenlabs?.api_key && config.elevenlabs?.voice_id;
-    const hasAudioBase  = arrCfg.audio_base_url;
-
-    if (hasElevenLabs && hasAudioBase) {
-        const filename = await generateElevenLabsAudio(messageText, config.elevenlabs, audioDir);
-        if (filename) {
-            audioUrl = `${arrCfg.audio_base_url.replace(/\/$/, '')}/${filename}`;
-            log(`[${type}] Audio URL: ${audioUrl}`);
-        }
-    } else {
-        if (!hasElevenLabs) log(`[${type}] ElevenLabs not configured — sending text only.`);
-        if (!hasAudioBase)  log(`[${type}] No audio_base_url set — skipping MMS attachment.`);
-    }
-
-    // ── Dispatch SMS/MMS ─────────────────────────────────────────────────────
+    const arrCfg       = config.arr || {};
+    const personality  = arrCfg.gemini_personality || 'You are JellyDad, an enthusiastic and fun home media server announcer.';
+    const geminiKey    = config.gemini?.api_key;
+    const hasElevenLabs = !!(config.elevenlabs?.api_key && config.elevenlabs?.voice_id);
+    const hasAudioBase  = !!arrCfg.audio_base_url;
 
     let sentCount = 0;
-    for (const phone of recipientPhones) {
+
+    for (const { tag, phone } of recipientPairs) {
+        const recipientName = extractName(tag);
+        log(`[${type}] Building message for ${recipientName}…`);
+
+        // 1. Generate personalized voice script via Gemini
+        const voiceScript = await generateVoiceScript(personality, mediaInfo, recipientName, geminiKey)
+            || buildFallbackScript(mediaInfo, recipientName);
+
+        // 2. Generate unique audio file for this recipient via ElevenLabs
+        let audioUrl = null;
+        if (hasElevenLabs && hasAudioBase) {
+            const filename = await generateElevenLabsAudio(
+                voiceScript, config.elevenlabs, audioDir, recipientName
+            );
+            if (filename) {
+                audioUrl = `${arrCfg.audio_base_url.replace(/\/$/, '')}/${filename}`;
+                log(`[${type}] ${recipientName} audio: ${audioUrl}`);
+            }
+        } else {
+            if (!hasElevenLabs) log(`[${type}] ElevenLabs not configured — text-only SMS.`);
+            if (!hasAudioBase)  log(`[${type}] No audio_base_url — skipping audio.`);
+        }
+
+        // 3. SMS body:
+        //    - If audio was generated: brief teaser line (the link is appended by notifier.js)
+        //    - If no audio: send the voice script as the text message
+        const smsBody = audioUrl
+            ? `📻 JellyDad has a personal message for ${recipientName}!`
+            : voiceScript;
+
         try {
-            await sendSMS(phone, messageText, audioUrl, config.sms_gateway);
+            await sendSMS(phone, smsBody, audioUrl, config.sms_gateway);
             sentCount++;
+            log(`[${type}] Sent to ${recipientName} (${phone}).`);
         } catch (e) {
-            log(`[${type}] Error sending to ${phone}: ${e.message}`);
+            log(`[${type}] Error sending to ${recipientName} (${phone}): ${e.message}`);
         }
     }
 
@@ -250,7 +285,7 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
         history.push(histKey);
         if (history.length > 2000) history.splice(0, history.length - 2000);
         saveHistory(historyFile, history);
-        log(`[${type}] Sent to ${sentCount}/${recipientPhones.length} recipient(s).`);
+        log(`[${type}] Done. Sent to ${sentCount}/${recipientPairs.length} recipient(s).`);
     }
 }
 

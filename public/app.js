@@ -3,7 +3,7 @@
 const PAGE_META = {
     'tab-jellyfin': { title: 'Jellyfin Notifier',    subtitle: 'Notify family members when new content appears on JellyDad.' },
     'tab-arr':      { title: 'Sonarr / Radarr',      subtitle: 'AI-powered announcements when shows or movies are added.' },
-    'tab-settings': { title: 'Settings',              subtitle: 'Twilio credentials, API keys, and system configuration.' }
+    'tab-settings': { title: 'Settings',              subtitle: 'SMS Gateway, API keys, and system configuration.' }
 };
 
 document.querySelectorAll('.nav-links li').forEach(li => {
@@ -25,7 +25,7 @@ document.querySelectorAll('.nav-links li').forEach(li => {
 // ─── Webhook URL Generation ────────────────────────────────────────────────────
 
 function setWebhookUrls() {
-    const base = `${window.location.protocol}//${window.location.hostname}:8085`;
+    const base = `${window.location.protocol}//${window.location.host}`;
     document.getElementById('jellyfin-webhook-url').textContent = `${base}/api/webhooks/jellyfin`;
     document.getElementById('sonarr-webhook-url').textContent   = `${base}/api/webhooks/sonarr`;
     document.getElementById('radarr-webhook-url').textContent   = `${base}/api/webhooks/radarr`;
@@ -316,6 +316,29 @@ document.getElementById('btn-test-sms').addEventListener('click', async () => {
         showToast(`Test failed: ${e.message}`, 'error');
     } finally {
         btn.textContent = 'Send Test SMS';
+        btn.disabled = false;
+    }
+});
+
+// ─── Test Arr Notification ────────────────────────────────────────────────────
+
+document.getElementById('btn-test-arr').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-test-arr');
+    btn.innerHTML = '<span class="spinner"></span> Firing pipeline…';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch('/api/test/arr-mock', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        showToast('🎬 Test fired! Generating audio & sending SMS… check your phone in ~15 seconds.', 'success');
+    } catch (e) {
+        showToast(`Test failed: ${e.message}`, 'error');
+    } finally {
+        btn.innerHTML = '🎬 Send Test Movie Notification';
         btn.disabled = false;
     }
 });

@@ -218,6 +218,38 @@ app.post('/api/test/jellyfin-mock', async (req, res) => {
     }
 });
 
+// Simulate a Radarr MovieAdded event — runs the full pipeline (Gemini → ElevenLabs → SMS)
+app.post('/api/test/arr-mock', async (req, res) => {
+    // Respond immediately — this can take 10-20s with Gemini + ElevenLabs
+    res.json({ success: true, message: 'Arr test fired — check server logs and your phone shortly.' });
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+
+        // Remove the dedup history entry for this test movie so repeated tests work
+        const historyFile = require('path').join(dataDir, 'arr_history.json');
+        if (fs.existsSync(historyFile)) {
+            let history = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+            history = history.filter(h => !h.startsWith('radarr::Interstellar'));
+            fs.writeFileSync(historyFile, JSON.stringify(history));
+        }
+
+        const mockPayload = {
+            eventType: 'MovieAdded',
+            movie: {
+                title:  'Interstellar',
+                year:   2014,
+                genres: ['Science Fiction', 'Adventure', 'Drama']
+            }
+        };
+
+        // Override type to radarr and enable it for the test regardless of toggle
+        const testConfig = { ...config, radarr: { ...config.radarr, enable: true } };
+        await handleArrWebhook(mockPayload, testConfig, 'radarr', audioDir, dataDir);
+    } catch (e) {
+        console.error('[arr-mock test] Error:', e.message);
+    }
+});
+
 // ─── Start Server ─────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {

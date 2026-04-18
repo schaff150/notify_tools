@@ -105,7 +105,7 @@
                                 <button class="copy-btn" onclick="copyText('jellyfin-webhook-url')">Copy</button>
                             </div>
                         </div>
-                    </div>
+                    </div>
 
                     <div class="card">
                         <h3>Jellyfin Server</h3>
@@ -144,7 +144,7 @@
                                 <!-- Populated by JS -->
                             </tbody>
                         </table>
-                        <p class="form-hint mt-2">Format: <code>+15551234567</code> — Twilio requires E.164 format.</p>
+                        <p class="form-hint mt-2">Format: <code>+15551234567</code> (E.164 — include country code)</p>
                     </div>
 
                     <div class="card">
@@ -262,14 +262,20 @@
                         <p class="card-subtitle">When configured, Gemini's script is converted to audio and sent as an MMS attachment via Nginx. Optional — falls back to text-only SMS if not set.</p>
 
                         <div class="info-box blue mb-3">
-                            The audio file will be saved to <code>/app/audio</code> inside the container. Map this volume to a path your Nginx instance serves publicly. Twilio will include the audio as an MMS attachment.
+                            The audio file will be saved to <code>/app/audio</code> inside the container. Map this volume to a path your Nginx instance serves publicly so the link in the SMS is accessible.
                         </div>
 
                         <div class="form-group">
                             <label>Public Audio Base URL</label>
                             <input type="text" id="arr-audio-base-url" class="form-control" placeholder="https://yourdomain.com/audio">
-                            <p class="form-hint">Full public URL to the directory where audio files are served. Must be accessible from the internet for Twilio MMS.</p>
+                            <p class="form-hint">Full public URL to the directory where audio files are served. Must be accessible from the internet for the audio link in SMS.</p>
                         </div>
+                    </div>
+
+                    <div class="card mt-3">
+                        <h3>&#129514; Test Arr Notification</h3>
+                        <p class="card-subtitle">Fire the full pipeline with a fake movie &mdash; Gemini writes a personalized script per recipient, ElevenLabs generates individual audio files, and SMS is sent to all configured recipients. May take 10&ndash;20 seconds.</p>
+                        <button id="btn-test-arr" class="btn btn-secondary w-full mt-2">&#127909; Send Test Movie Notification</button>
                     </div>
                 </div>
 
@@ -314,7 +320,7 @@
                     <!-- Test SMS (shared) -->
                     <div class="card">
                         <h3>🧪 Test SMS</h3>
-                        <p class="card-subtitle">Send a test message to verify Twilio is configured correctly.</p>
+                        <p class="card-subtitle">Send a test message to verify the SMS Gateway is configured correctly.</p>
                         <div class="form-grid-2 mt-2">
                             <div class="form-group">
                                 <label>Send to Tag</label>
