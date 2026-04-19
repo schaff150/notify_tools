@@ -11,6 +11,9 @@ const PORT = process.env.PORT || 8085;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+// Serve generated audio files publicly at /audio/<filename>
+// e.g. https://audio.dadtv.me/audio/jellydad_anna_1234.mp3
+app.use('/audio', express.static(path.join(__dirname, 'audio')));
 
 // ─── Directory Setup ──────────────────────────────────────────────────────────
 
