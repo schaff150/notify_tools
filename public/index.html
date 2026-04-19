@@ -359,6 +359,14 @@
                             <input type="password" id="gemini-key" class="form-control" placeholder="AIza••••••••••••••••••••••••••••••">
                             <p class="form-hint">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">Google AI Studio</a>.</p>
                         </div>
+                        <div class="form-group">
+                            <label>Model</label>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="text" id="gemini-model" class="form-control" placeholder="gemini-1.5-flash" style="flex:1">
+                                <button id="btn-list-models" class="btn btn-sm btn-outline" style="white-space:nowrap">Check Available</button>
+                            </div>
+                            <p class="form-hint" id="gemini-model-hint">Click Check Available to see what models your API key supports.</p>
+                        </div>
                     </div>
 
                     <div class="card">

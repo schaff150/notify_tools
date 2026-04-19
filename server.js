@@ -69,7 +69,8 @@ const defaultConfig = {
         voice_id: 'EXAVITQu4vr4xnSDxMaL'  // Default: "Bella" voice
     },
     gemini: {
-        api_key: ''
+        api_key: '',
+        model:   'gemini-1.5-flash'  // Change here if you need a different model
     }
 };
 
@@ -186,6 +187,30 @@ app.post('/api/test/sms', async (req, res) => {
             config.sms_gateway
         );
         res.json({ success: true, message: `Test SMS sent to ${entry.phone}` });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// List available Gemini models for the configured API key
+app.get('/api/test/gemini-models', async (req, res) => {
+    try {
+        const config  = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const apiKey  = config.gemini?.api_key;
+        if (!apiKey) return res.status(400).json({ error: 'No Gemini API key configured.' });
+
+        const resp = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+        );
+        const data = await resp.json();
+        if (!resp.ok) return res.status(resp.status).json(data);
+
+        // Filter to only generateContent-capable models, sort by name
+        const models = (data.models || [])
+            .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+            .map(m => m.name.replace('models/', ''))
+            .sort();
+        res.json({ models });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

@@ -45,7 +45,7 @@ function extractName(tag) {
  * This is meant to be read aloud by ElevenLabs, not sent as an SMS body,
  * so it can be conversational, expressive, and longer than 160 chars.
  */
-async function generateVoiceScript(personality, mediaInfo, recipientName, apiKey) {
+async function generateVoiceScript(personality, mediaInfo, recipientName, apiKey, model) {
     if (!apiKey) {
         log(`No Gemini API key — using fallback for ${recipientName}.`);
         return null;
@@ -65,7 +65,7 @@ async function generateVoiceScript(personality, mediaInfo, recipientName, apiKey
 
     try {
         const resp = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -237,6 +237,7 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
     const arrCfg       = config.arr || {};
     const personality  = arrCfg.gemini_personality || 'You are JellyDad, an enthusiastic and fun home media server announcer.';
     const geminiKey    = config.gemini?.api_key;
+    const geminiModel  = config.gemini?.model || 'gemini-1.5-flash';
     const hasElevenLabs = !!(config.elevenlabs?.api_key && config.elevenlabs?.voice_id);
     const hasAudioBase  = !!arrCfg.audio_base_url;
 
@@ -247,7 +248,7 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
         log(`[${type}] Building message for ${recipientName}…`);
 
         // 1. Generate personalized voice script via Gemini
-        const voiceScript = await generateVoiceScript(personality, mediaInfo, recipientName, geminiKey)
+        const voiceScript = await generateVoiceScript(personality, mediaInfo, recipientName, geminiKey, geminiModel)
             || buildFallbackScript(mediaInfo, recipientName);
 
         // 2. Generate unique audio file for this recipient via ElevenLabs

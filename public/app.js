@@ -102,6 +102,7 @@ function populateUI(cfg) {
     setVal('elevenlabs-key',         cfg.elevenlabs?.api_key  ?? '');
     setVal('elevenlabs-voice-id',    cfg.elevenlabs?.voice_id ?? '');
     setVal('gemini-key',             cfg.gemini?.api_key      ?? '');
+    setVal('gemini-model',           cfg.gemini?.model        ?? 'gemini-1.5-flash');
 
     // Update sidebar badges
     updateBadge('badge-jellyfin', cfg.jellyfin?.enable);
@@ -186,7 +187,8 @@ function buildConfigFromUI() {
             voice_id: getVal('elevenlabs-voice-id')
         },
         gemini: {
-            api_key: getVal('gemini-key')
+            api_key: getVal('gemini-key'),
+            model:   getVal('gemini-model') || 'gemini-1.5-flash'
         }
     };
 }
@@ -339,6 +341,28 @@ document.getElementById('btn-test-arr').addEventListener('click', async () => {
         showToast(`Test failed: ${e.message}`, 'error');
     } finally {
         btn.innerHTML = '🎬 Send Test Movie Notification';
+        btn.disabled = false;
+    }
+});
+
+// ─── List Gemini Models ───────────────────────────────────────────────────────
+
+document.getElementById('btn-list-models').addEventListener('click', async () => {
+    const btn  = document.getElementById('btn-list-models');
+    const hint = document.getElementById('gemini-model-hint');
+    btn.textContent = 'Loading…';
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/test/gemini-models');
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        hint.innerHTML = '<strong>Available:</strong> ' + data.models.join(', ');
+        hint.style.color = 'var(--success, #4ade80)';
+    } catch (e) {
+        hint.textContent = 'Error: ' + e.message;
+        hint.style.color = 'var(--danger, #f87171)';
+    } finally {
+        btn.textContent = 'Check Available';
         btn.disabled = false;
     }
 });
