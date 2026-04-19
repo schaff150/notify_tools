@@ -245,8 +245,8 @@ app.post('/api/test/arr-mock', async (req, res) => {
             }
         };
 
-        // Override type to radarr and enable it for the test regardless of toggle
-        const testConfig = { ...config, radarr: { ...config.radarr, enable: true } };
+        // Override type to radarr and restrict to Gin only for testing
+        const testConfig = { ...config, radarr: { ...config.radarr, enable: true, recipients: 'notify-gin' } };
         await handleArrWebhook(mockPayload, testConfig, 'radarr', audioDir, dataDir);
     } catch (e) {
         console.error('[arr-mock test] Error:', e.message);
