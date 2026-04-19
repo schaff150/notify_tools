@@ -49,9 +49,12 @@ async function sendSMS(to, body, audioUrl, smsGatewayConfig) {
 
     const credentials = Buffer.from(`${username}:${password}`).toString('base64');
 
-    console.log(`[notifier] POST ${apiUrl}`);
-    console.log(`[notifier]   to:      ${to}`);
-    console.log(`[notifier]   message: ${message.substring(0, 80)}${message.length > 80 ? '…' : ''}`);
+    const ts = () => new Date().toISOString().replace('T',' ').substring(0,19);
+
+    console.log(`[${ts()}] [notifier] POST ${apiUrl}`);
+    console.log(`[${ts()}] [notifier]   to:      ${to}`);
+    console.log(`[${ts()}] [notifier]   message: ${message.substring(0, 80)}${message.length > 80 ? '…' : ''}`);
+
 
     let resp;
     try {
@@ -67,9 +70,9 @@ async function sendSMS(to, body, audioUrl, smsGatewayConfig) {
         const cause    = networkErr.cause || networkErr;
         const errCode  = cause.code    || 'no code';
         const errMsg   = cause.message || networkErr.message || String(networkErr);
-        console.error(`[notifier] ✗ Network error reaching ${apiUrl}`);
-        console.error(`[notifier]   code:    ${errCode}`);
-        console.error(`[notifier]   message: ${errMsg}`);
+        console.error(`[${ts()}] [notifier] ✗ Network error reaching ${apiUrl}`);
+        console.error(`[${ts()}] [notifier]   code:    ${errCode}`);
+        console.error(`[${ts()}] [notifier]   message: ${errMsg}`);
         // ECONNREFUSED = port not open / app not listening
         // ETIMEDOUT    = host reachable but port blocked by firewall
         // ENETUNREACH  = Docker can't route to that subnet
@@ -78,7 +81,7 @@ async function sendSMS(to, body, audioUrl, smsGatewayConfig) {
     }
 
     const responseText = await resp.text();
-    console.log(`[notifier] Response ${resp.status}: ${responseText.substring(0, 200)}`);
+    console.log(`[${ts()}] [notifier] Response ${resp.status}: ${responseText.substring(0, 200)}`);
 
     if (!resp.ok) {
         throw new Error(`SMS Gateway ${resp.status} from ${apiUrl} — ${responseText}`);
@@ -87,7 +90,7 @@ async function sendSMS(to, body, audioUrl, smsGatewayConfig) {
     let result;
     try { result = JSON.parse(responseText); } catch { result = {}; }
 
-    console.log(`[notifier] ✓ SMS queued to ${to} — id: ${result.id || '?'}, state: ${result.state || '?'}`);
+    console.log(`[${ts()}] [notifier] ✓ SMS queued to ${to} — id: ${result.id || '?'}, state: ${result.state || '?'}`);
     return result.id;
 }
 

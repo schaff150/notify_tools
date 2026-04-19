@@ -2,7 +2,10 @@ const fs   = require('fs');
 const path = require('path');
 const { sendSMS } = require('../notifier');
 
-function log(msg) { console.log(`[arr] ${msg}`); }
+function log(msg) {
+    const ts = new Date().toISOString().replace('T',' ').substring(0,19);
+    console.log(`[${ts}] [arr] ${msg}`);
+}
 
 // ─── History Helpers ──────────────────────────────────────────────────────────
 
