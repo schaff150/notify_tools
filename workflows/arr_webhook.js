@@ -53,15 +53,12 @@ async function generateVoiceScript(personality, mediaInfo, recipientName, apiKey
 
     const prompt =
         `${personality}\n\n` +
-        `Write a short, enthusiastic, personalized voice announcement for ${recipientName}. ` +
-        `This will be spoken aloud as a voice message (text-to-speech), so make it conversational, ` +
-        `warm, and expressive — 2 to 3 sentences. Address ${recipientName} by name. ` +
-        `Do NOT use emojis (they won't sound good when spoken). No hashtags.\n\n` +
-        `A new ${typeLabel} was just added to the JellyDad media server:\n` +
+        `You are speaking directly to ${recipientName}. Address them by name.\n\n` +
+        `A new ${typeLabel} was just added to the media server:\n` +
         `Title: ${mediaInfo.title}\n` +
         `Year: ${mediaInfo.year}\n` +
         `Genres: ${genreStr}\n\n` +
-        `Write ONLY the spoken script. No quotes, no labels — just the words to be spoken.`;
+        `Write ONLY the spoken script — no emojis (this will be read aloud), no labels, just the words.`;
 
     try {
         const resp = await fetch(
