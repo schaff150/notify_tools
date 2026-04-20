@@ -3,7 +3,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
-console.log('=== Notify Tools server.js v1.0 ===');
+const ts = () => new Date().toISOString().replace('T', ' ').substring(0, 23);
+console.log(`[${ts()}] === Notify Tools server.js v1.0 ===`);
 
 const app = express();
 const PORT = process.env.PORT || 8085;
@@ -77,7 +78,7 @@ const defaultConfig = {
 // Initialize config if missing, otherwise non-destructively merge new defaults
 if (!fs.existsSync(configFile)) {
     fs.writeFileSync(configFile, JSON.stringify(defaultConfig, null, 2));
-    console.log('[config] Created default config.json');
+    console.log(`[${ts()}] [config] Created default config.json`);
 } else {
     try {
         const existing = JSON.parse(fs.readFileSync(configFile, 'utf8'));
@@ -86,12 +87,12 @@ if (!fs.existsSync(configFile)) {
             if (existing[key] === undefined) {
                 existing[key] = defaultConfig[key];
                 changed = true;
-                console.log(`[config] Seeded missing key: ${key}`);
+                console.log(`[${ts()}] [config] Seeded missing key: ${key}`);
             }
         }
         if (changed) fs.writeFileSync(configFile, JSON.stringify(existing, null, 2));
     } catch (e) {
-        console.error('[config] Merge error:', e.message);
+        console.error(`[${ts()}] [config] Merge error:`, e.message);
     }
 }
 
@@ -114,7 +115,7 @@ app.get('/api/config', (req, res) => {
 app.post('/api/config', (req, res) => {
     try {
         fs.writeFileSync(configFile, JSON.stringify(req.body, null, 2));
-        console.log('[config] Configuration saved.');
+        console.log(`[${ts()}] [config] Configuration saved.`);
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: 'Failed to write config' });
@@ -129,12 +130,12 @@ app.post('/api/webhooks/jellyfin', async (req, res) => {
     try {
         const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
         if (!config.jellyfin?.enable) {
-            console.log('[jellyfin] Webhook received but tool is disabled.');
+            console.log(`[${ts()}] [jellyfin] Webhook received but tool is disabled.`);
             return;
         }
         await handleJellyfinWebhook(req.body, config, dataDir);
     } catch (e) {
-        console.error('[jellyfin webhook] Unhandled error:', e.message);
+        console.error(`[${ts()}] [jellyfin webhook] Unhandled error:`, e.message);
     }
 });
 
@@ -143,12 +144,12 @@ app.post('/api/webhooks/sonarr', async (req, res) => {
     try {
         const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
         if (!config.sonarr?.enable) {
-            console.log('[sonarr] Webhook received but tool is disabled.');
+            console.log(`[${ts()}] [sonarr] Webhook received but tool is disabled.`);
             return;
         }
         await handleArrWebhook(req.body, config, 'sonarr', audioDir, dataDir);
     } catch (e) {
-        console.error('[sonarr webhook] Unhandled error:', e.message);
+        console.error(`[${ts()}] [sonarr webhook] Unhandled error:`, e.message);
     }
 });
 
@@ -157,12 +158,12 @@ app.post('/api/webhooks/radarr', async (req, res) => {
     try {
         const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
         if (!config.radarr?.enable) {
-            console.log('[radarr] Webhook received but tool is disabled.');
+            console.log(`[${ts()}] [radarr] Webhook received but tool is disabled.`);
             return;
         }
         await handleArrWebhook(req.body, config, 'radarr', audioDir, dataDir);
     } catch (e) {
-        console.error('[radarr webhook] Unhandled error:', e.message);
+        console.error(`[${ts()}] [radarr webhook] Unhandled error:`, e.message);
     }
 });
 

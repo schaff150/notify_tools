@@ -2,36 +2,56 @@ const fs   = require('fs');
 const path = require('path');
 const { sendSMS } = require('../notifier');
 
-function log(msg) { console.log(`[jellyfin] ${msg}`); }
+// ─── Logger ───────────────────────────────────────────────────────────────────
+
+function ts() {
+    return new Date().toISOString().replace('T', ' ').substring(0, 23);
+}
+
+function log(msg)  { console.log(`[${ts()}] [jellyfin] ${msg}`); }
+function warn(msg) { console.warn(`[${ts()}] [jellyfin] ⚠ ${msg}`); }
+function err(msg)  { console.error(`[${ts()}] [jellyfin] ✗ ${msg}`); }
 
 // ─── History Helpers ──────────────────────────────────────────────────────────
 
 function loadHistory(historyFile) {
     if (fs.existsSync(historyFile)) {
         try { return JSON.parse(fs.readFileSync(historyFile, 'utf8')); }
-        catch (e) { log(`Error reading history: ${e.message}`); }
+        catch (e) { err(`Error reading history: ${e.message}`); }
     }
     return [];
 }
 
 function saveHistory(historyFile, history) {
     try { fs.writeFileSync(historyFile, JSON.stringify(history)); }
-    catch (e) { log(`Error saving history: ${e.message}`); }
+    catch (e) { err(`Error saving history: ${e.message}`); }
 }
 
 // ─── Jellyfin API ─────────────────────────────────────────────────────────────
 
-async function getTagsFromApi(jellyfinUrl, apiKey, itemId) {
-    if (!itemId || !apiKey || !jellyfinUrl) return [];
+async function getTagsFromApi(jellyfinUrl, apiKey, itemId, label) {
+    if (!itemId || !apiKey || !jellyfinUrl) {
+        log(`API tag fetch skipped for ${label} — missing itemId, apiKey, or url.`);
+        return [];
+    }
     const url = `${jellyfinUrl}/Items?Ids=${itemId}&Fields=Tags&api_key=${apiKey}`;
+    log(`Fetching tags from Jellyfin API for ${label} (id: ${itemId})…`);
     try {
         const resp = await fetch(url);
+        if (!resp.ok) {
+            warn(`Jellyfin API returned HTTP ${resp.status} for ${label} (id: ${itemId})`);
+            return [];
+        }
         const data = await resp.json();
         if (data.Items && data.Items.length > 0) {
-            return data.Items[0].Tags || [];
+            const tags = data.Items[0].Tags || [];
+            log(`  API tags for ${label}: [${tags.join(', ') || '(none)'}]`);
+            return tags;
+        } else {
+            warn(`  Jellyfin API returned no Items for ${label} (id: ${itemId})`);
         }
     } catch (e) {
-        log(`Error fetching tags for ${itemId}: ${e.message}`);
+        err(`Error fetching tags for ${label} (id: ${itemId}): ${e.message}`);
     }
     return [];
 }
@@ -67,78 +87,146 @@ function buildMessage(data) {
 async function handleJellyfinWebhook(data, config, dataDir) {
     const historyFile = path.join(dataDir, 'jellyfin_history.json');
 
-    // Only handle ItemAdded events
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    log('Webhook received — full payload:');
+    log(JSON.stringify(data, null, 2));
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // ── Step 1: Gate on event type ────────────────────────────────────────────
     const notifType = data.NotificationType || '';
+    log(`Step 1 — NotificationType: "${notifType}"`);
     if (notifType && notifType !== 'ItemAdded') {
-        log(`Ignored event type: ${notifType}`);
+        log(`  → Ignored (not ItemAdded). Done.`);
         return;
     }
 
-    const itemName  = data.Name || 'Unknown Item';
-    const itemId    = data.ItemId || '';
-    const seriesId  = data.SeriesId || '';
-    const isTv      = !!data.SeriesName;
+    // ── Step 2: Extract core fields ───────────────────────────────────────────
+    const itemName = data.Name    || 'Unknown Item';
+    const itemId   = data.ItemId  || '';
+    const seriesId = data.SeriesId || '';
+    const isTv     = !!data.SeriesName;
 
-    log(`Received: ${itemName}`);
+    log(`Step 2 — Core fields:`);
+    log(`  Name:      "${itemName}"`);
+    log(`  ItemId:    "${itemId || '(empty)'}"`);
+    log(`  SeriesId:  "${seriesId || '(empty)'}"`);
+    log(`  SeriesName:"${data.SeriesName || '(none)'}"`);
+    log(`  Type:      ${isTv ? 'TV Episode' : 'Movie'}`);
 
     // Build dedup key — based on content identity, not Jellyfin item ID
-    // (prevents firing twice when Tdarr re-encodes the file)
     const mediaUid = isTv
         ? `${data.SeriesName}_S${data.SeasonNumber || 0}E${data.EpisodeNumber || 0}`
         : itemName;
+    log(`  DedupeKey: "${mediaUid}"`);
 
-    // Collect tags from webhook payload (tags can come in as a string or array)
-    function cleanTags(val) {
+    // ── Step 3: Collect tags from all sources ─────────────────────────────────
+    function cleanTags(val, source) {
         if (!val) return [];
-        if (Array.isArray(val)) return val.map(v => String(v).trim()).filter(Boolean);
-        return String(val).split(',').map(t => t.trim()).filter(Boolean);
+        const raw = Array.isArray(val)
+            ? val.map(v => String(v).trim()).filter(Boolean)
+            : String(val).split(',').map(t => t.trim()).filter(Boolean);
+        if (raw.length > 0) {
+            log(`  Tags from ${source}: [${raw.join(', ')}]`);
+        } else {
+            log(`  Tags from ${source}: (none / empty)`);
+        }
+        return raw;
     }
 
+    log(`Step 3 — Collecting tags from all sources:`);
     let tags = [
-        ...cleanTags(data.Tags),
-        ...cleanTags(data.SeriesTags)
+        ...cleanTags(data.Tags,       'payload.Tags'),
+        ...cleanTags(data.SeriesTags, 'payload.SeriesTags')
     ];
 
     // Augment with tags fetched directly from the Jellyfin API
-    if (itemId)  tags.push(...await getTagsFromApi(config.jellyfin.url, config.jellyfin.api_key, itemId));
-    if (seriesId) tags.push(...await getTagsFromApi(config.jellyfin.url, config.jellyfin.api_key, seriesId));
+    if (itemId) {
+        if (!config.jellyfin?.api_key) {
+            warn(`  Skipping Jellyfin API call for ItemId — no api_key configured`);
+        } else {
+            tags.push(...await getTagsFromApi(config.jellyfin.url, config.jellyfin.api_key, itemId, 'Item'));
+        }
+    } else {
+        log(`  ItemId is empty — skipping item API call`);
+    }
+
+    if (seriesId) {
+        if (!config.jellyfin?.api_key) {
+            warn(`  Skipping Jellyfin API call for SeriesId — no api_key configured`);
+        } else {
+            tags.push(...await getTagsFromApi(config.jellyfin.url, config.jellyfin.api_key, seriesId, 'Series'));
+        }
+    } else {
+        log(`  SeriesId is empty — skipping series API call`);
+    }
 
     // If Overseerr sent the webhook, map the requester username to a notify tag
     const seerrUser = data.requestedBy_username;
-    if (seerrUser) tags.push(seerrUser);
-
-    // Build seerr → notify-tag lookup
-    const seerrMap = {};
-    (config.seerr_user_map || []).forEach(m => { seerrMap[m.seerr_username] = m.tag; });
-
-    // Resolve all tags through the seerr map
-    const finalTags = new Set();
-    for (const tag of tags) {
-        finalTags.add(seerrMap[tag] || tag);
+    if (seerrUser) {
+        log(`  Overseerr requestedBy_username: "${seerrUser}" — adding to tag list`);
+        tags.push(seerrUser);
+    } else {
+        log(`  No requestedBy_username in payload`);
     }
 
-    log(`Resolved tags: ${[...finalTags].join(', ')}`);
+    log(`  All collected tags before mapping: [${tags.join(', ') || '(none)'}]`);
 
-    // Build notify-tag → phone lookup
+    // ── Step 4: Resolve tags through seerr → notify-tag map ──────────────────
+    log(`Step 4 — Resolving via seerr_user_map:`);
+    const seerrMap = {};
+    (config.seerr_user_map || []).forEach(m => { seerrMap[m.seerr_username] = m.tag; });
+    log(`  Configured seerr_user_map: ${JSON.stringify(seerrMap)}`);
+
+    const finalTags = new Set();
+    for (const tag of tags) {
+        const mapped = seerrMap[tag];
+        if (mapped) {
+            log(`  "${tag}" → mapped to "${mapped}"`);
+            finalTags.add(mapped);
+        } else {
+            finalTags.add(tag);
+        }
+    }
+    log(`  Final resolved tags: [${[...finalTags].join(', ') || '(none)'}]`);
+
+    // ── Step 5: Resolve notify-tags to phone numbers ──────────────────────────
+    log(`Step 5 — Resolving tags to phone numbers via notify_map:`);
     const notifyMap = {};
-    (config.notify_map || []).forEach(m => { if (m.phone) notifyMap[m.tag] = m.phone; });
+    (config.notify_map || []).forEach(m => {
+        if (m.phone) {
+            notifyMap[m.tag] = m.phone;
+        } else {
+            warn(`  notify_map entry "${m.tag}" has no phone number configured — will be skipped`);
+        }
+    });
+    log(`  Configured notify_map (tags with phones): [${Object.keys(notifyMap).join(', ') || '(none)'}]`);
 
-    const history = loadHistory(historyFile);
-    let sentCount = 0;
+    // ── Step 6: Send notifications ────────────────────────────────────────────
+    log(`Step 6 — Processing ${finalTags.size} resolved tag(s)…`);
+    const history  = loadHistory(historyFile);
+    let sentCount  = 0;
+    let skipCount  = 0;
+    let missCount  = 0;
 
     for (const tag of finalTags) {
         const phone = notifyMap[tag];
-        if (!phone) continue;
-
-        // Dedup check: skip if we've already notified this recipient about this exact media
-        const histKey = `${phone}::${mediaUid}`;
-        if (history.includes(histKey)) {
-            log(`Already notified ${phone} about "${mediaUid}". Skipping.`);
+        if (!phone) {
+            warn(`  Tag "${tag}" not found in notify_map (or no phone set) — skipping`);
+            missCount++;
             continue;
         }
 
+        const histKey = `${phone}::${mediaUid}`;
+        if (history.includes(histKey)) {
+            log(`  Tag "${tag}" → ${phone}: Already notified about "${mediaUid}" — skipping (dedup)`);
+            skipCount++;
+            continue;
+        }
+
+        log(`  Tag "${tag}" → ${phone}: Sending SMS…`);
         try {
             const message = buildMessage(data);
+            log(`  Message: "${message}"`);
             await sendSMS(phone, message, null, config.sms_gateway);
             history.push(histKey);
             sentCount++;
@@ -147,15 +235,13 @@ async function handleJellyfinWebhook(data, config, dataDir) {
             if (history.length > 2000) history.splice(0, history.length - 2000);
             saveHistory(historyFile, history);
         } catch (e) {
-            log(`Error sending to ${phone}: ${e.message}`);
+            err(`  Failed to send to ${phone} (tag "${tag}"): ${e.message}`);
         }
     }
 
-    if (sentCount === 0) {
-        log('No matching notify tags found, or all already notified.');
-    } else {
-        log(`Sent ${sentCount} notification(s) for "${mediaUid}".`);
-    }
+    // ── Step 7: Summary ───────────────────────────────────────────────────────
+    log(`Step 7 — Done. Sent: ${sentCount}, Skipped (dedup): ${skipCount}, No phone/tag: ${missCount}`);
+    log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 }
 
 module.exports = { handleJellyfinWebhook };
