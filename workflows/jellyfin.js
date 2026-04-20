@@ -134,6 +134,16 @@ async function handleJellyfinWebhook(data, config, dataDir) {
     }
 
     log(`Step 3 — Collecting tags from all sources:`);
+
+    // Detect missing Tags field — this happens when the Jellyfin webhook template
+    // does not include {{Tags}} / {{SeriesTags}}. Without these, Jellyfin-tag-based
+    // routing (e.g. "notify-gin") can ONLY work via the API fallback below.
+    if (data.Tags === undefined && data.SeriesTags === undefined) {
+        warn(`  !! payload.Tags and payload.SeriesTags are BOTH MISSING from the webhook.`);
+        warn(`  !! This means Jellyfin tag routing (notify-gin, etc.) depends ENTIRELY on the API fallback.`);
+        warn(`  !! FIX: Add  "Tags": "{{Tags}}"  and  "SeriesTags": "{{SeriesTags}}"  to the Jellyfin webhook template.`);
+    }
+
     let tags = [
         ...cleanTags(data.Tags,       'payload.Tags'),
         ...cleanTags(data.SeriesTags, 'payload.SeriesTags')
