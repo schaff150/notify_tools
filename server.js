@@ -11,6 +11,9 @@ const PORT = process.env.PORT || 8085;
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+// Fallback: Jellyfin sends webhooks as text/plain (not application/json).
+// express.text captures anything that express.json didn't consume.
+app.use(express.text({ type: '*/*', limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 // Serve generated audio files publicly at /audio/<filename>
 // e.g. https://audio.dadtv.me/audio/jellydad_anna_1234.mp3
@@ -133,7 +136,29 @@ app.post('/api/webhooks/jellyfin', async (req, res) => {
             console.log(`[${ts()}] [jellyfin] Webhook received but tool is disabled.`);
             return;
         }
-        await handleJellyfinWebhook(req.body, config, dataDir);
+
+        // Jellyfin sends webhooks as text/plain, not application/json.
+        // express.json() only fires on Content-Type: application/json, so we
+        // may receive the body as a raw string — coerce it here.
+        const contentType = req.headers['content-type'] || '(none)';
+        console.log(`[${ts()}] [jellyfin] Incoming Content-Type: ${contentType}`);
+
+        let body = req.body;
+        if (typeof body === 'string') {
+            console.log(`[${ts()}] [jellyfin] Body arrived as string — parsing as JSON.`);
+            try {
+                body = JSON.parse(body);
+            } catch (parseErr) {
+                console.error(`[${ts()}] [jellyfin] Failed to parse body string as JSON: ${parseErr.message}`);
+                console.error(`[${ts()}] [jellyfin] Raw body: ${String(body).substring(0, 500)}`);
+                return;
+            }
+        } else if (!body || typeof body !== 'object' || Array.isArray(body)) {
+            console.error(`[${ts()}] [jellyfin] Unexpected body type: ${typeof body} — value: ${JSON.stringify(body)}`);
+            return;
+        }
+
+        await handleJellyfinWebhook(body, config, dataDir);
     } catch (e) {
         console.error(`[${ts()}] [jellyfin webhook] Unhandled error:`, e.message);
     }
