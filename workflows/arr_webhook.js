@@ -61,7 +61,8 @@ async function generateVoiceScript(personality, mediaInfo, recipientName, apiKey
         `Title: ${mediaInfo.title}\n` +
         `Year: ${mediaInfo.year}\n` +
         `Genres: ${genreStr}\n\n` +
-        `Write ONLY the spoken script — no emojis (this will be read aloud), no labels, just the words.`;
+        `Write ONLY the spoken script — no emojis (this will be read aloud), no labels, just the words. ` +
+        `Make sure the message is at least 3 to 4 sentences long so it sounds like a proper, detailed message in character!`;
 
     try {
         const resp = await fetch(
@@ -71,7 +72,7 @@ async function generateVoiceScript(personality, mediaInfo, recipientName, apiKey
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { maxOutputTokens: 200, temperature: 0.9 }
+                    generationConfig: { maxOutputTokens: 1000, temperature: 0.9 }
                 })
             }
         );
