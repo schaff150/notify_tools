@@ -181,7 +181,8 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
             title:  s.title  || data.title  || 'Unknown Series',
             year:   s.year   || data.year   || '',
             type:   'series',
-            genres: s.genres || []
+            genres: s.genres || [],
+            tags:   s.tags   || data.tags   || []
         };
     } else {
         expectedEvent = 'MovieAdded';
@@ -190,7 +191,8 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
             title:  m.title  || data.title  || 'Unknown Movie',
             year:   m.year   || data.year   || '',
             type:   'movie',
-            genres: m.genres || []
+            genres: m.genres || [],
+            tags:   m.tags   || data.tags   || []
         };
     }
 
@@ -209,13 +211,25 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
     (config.notify_map || []).forEach(m => { if (m.phone) notifyMap[m.tag] = m.phone; });
 
     let recipientPairs = []; // [{tag, phone}]
-    if (!arrConfig.recipients || arrConfig.recipients === 'all') {
-        recipientPairs = Object.entries(notifyMap).map(([tag, phone]) => ({ tag, phone }));
+    
+    // First, check if the media item has specific notify tags from Sonarr/Radarr
+    // (e.g. tags pushed by Jellyseerr into Sonarr/Radarr)
+    const mediaTags = Array.isArray(mediaInfo.tags) ? mediaInfo.tags.map(t => typeof t === 'string' ? t.toLowerCase() : String(t.id || t.label || t).toLowerCase()) : [];
+    const matchedMediaTags = mediaTags.filter(tag => notifyMap[tag]);
+
+    if (matchedMediaTags.length > 0) {
+        log(`[${type}] Found matching notify tags in webhook payload: ${matchedMediaTags.join(', ')}`);
+        recipientPairs = matchedMediaTags.map(tag => ({ tag, phone: notifyMap[tag] }));
     } else {
-        const tags = String(arrConfig.recipients).split(',').map(t => t.trim()).filter(Boolean);
-        recipientPairs = tags
-            .filter(tag => notifyMap[tag])
-            .map(tag => ({ tag, phone: notifyMap[tag] }));
+        // Fallback to the static setting from the UI
+        if (!arrConfig.recipients || arrConfig.recipients === 'all') {
+            recipientPairs = Object.entries(notifyMap).map(([tag, phone]) => ({ tag, phone }));
+        } else {
+            const tags = String(arrConfig.recipients).split(',').map(t => t.trim()).filter(Boolean);
+            recipientPairs = tags
+                .filter(tag => notifyMap[tag])
+                .map(tag => ({ tag, phone: notifyMap[tag] }));
+        }
     }
 
     if (recipientPairs.length === 0) {
