@@ -53,14 +53,18 @@ const defaultConfig = {
     },
     sonarr: {
         enable: false,
+        url: '',         // e.g. http://192.168.0.87:8989
+        api_key: '',
         recipients: 'all'   // 'all' or comma-separated tag names e.g. 'notify-dad,notify-anna'
     },
     radarr: {
         enable: false,
+        url: '',         // e.g. http://192.168.0.87:7878
+        api_key: '',
         recipients: 'all'
     },
     arr: {
-        gemini_personality: 'You are JellyDad, an enthusiastic and fun home media server announcer. Keep messages short and family-friendly.',
+        gemini_personality: 'You are a friendly home media server assistant. Keep messages brief and natural.',
         audio_base_url: ''  // e.g. https://yourdomain.com/audio — must be publicly accessible for MMS
     },
     sms_gateway: {
@@ -296,8 +300,9 @@ app.post('/api/test/arr-mock', async (req, res) => {
             }
         };
 
-        // Override type to radarr and restrict to Gin only for testing
-        const testConfig = { ...config, radarr: { ...config.radarr, enable: true, recipients: 'notify-gin' } };
+        // Override type to radarr and restrict to Gin only for testing.
+        // Clear url/api_key so the API tag lookup is skipped (the mock has no movie.id anyway).
+        const testConfig = { ...config, radarr: { ...config.radarr, enable: true, url: '', api_key: '', recipients: 'notify-gin' } };
         await handleArrWebhook(mockPayload, testConfig, 'radarr', audioDir, dataDir);
     } catch (e) {
         console.error('[arr-mock test] Error:', e.message);

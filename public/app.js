@@ -87,8 +87,12 @@ function populateUI(cfg) {
 
     // ── Sonarr / Radarr
     setChecked('sonarr-enable',      cfg.sonarr?.enable      ?? false);
+    setVal('sonarr-url',             cfg.sonarr?.url         ?? '');
+    setVal('sonarr-api-key',         cfg.sonarr?.api_key     ?? '');
     setVal('sonarr-recipients',      cfg.sonarr?.recipients  ?? 'all');
     setChecked('radarr-enable',      cfg.radarr?.enable      ?? false);
+    setVal('radarr-url',             cfg.radarr?.url         ?? '');
+    setVal('radarr-api-key',         cfg.radarr?.api_key     ?? '');
     setVal('radarr-recipients',      cfg.radarr?.recipients  ?? 'all');
 
     // ── Arr AI / Audio
@@ -167,10 +171,14 @@ function buildConfigFromUI() {
         },
         sonarr: {
             enable:     document.getElementById('sonarr-enable').checked,
+            url:        getVal('sonarr-url'),
+            api_key:    getVal('sonarr-api-key'),
             recipients: getVal('sonarr-recipients') || 'all'
         },
         radarr: {
             enable:     document.getElementById('radarr-enable').checked,
+            url:        getVal('radarr-url'),
+            api_key:    getVal('radarr-api-key'),
             recipients: getVal('radarr-recipients') || 'all'
         },
         arr: {
