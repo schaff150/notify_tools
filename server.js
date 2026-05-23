@@ -319,9 +319,9 @@ app.post('/api/test/arr-mock', async (req, res) => {
             }
         };
 
-        // Override type to radarr and restrict to Gin only for testing.
+        // Override type to radarr and send to Dad for testing.
         // Clear url/api_key so the API tag lookup is skipped (the mock has no movie.id anyway).
-        const testConfig = { ...config, radarr: { ...config.radarr, enable: true, url: '', api_key: '', recipients: 'notify-gin' } };
+        const testConfig = { ...config, radarr: { ...config.radarr, enable: true, url: '', api_key: '', recipients: 'notify-dad' } };
         await handleArrWebhook(mockPayload, testConfig, 'radarr', audioDir, dataDir);
     } catch (e) {
         console.error('[arr-mock test] Error:', e.message);
