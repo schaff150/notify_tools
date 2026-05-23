@@ -3,7 +3,7 @@
 const PAGE_META = {
     'tab-jellyfin': { title: 'Jellyfin Notifier',    subtitle: 'Notify family members when new content appears on JellyDad.' },
     'tab-arr':      { title: 'Sonarr / Radarr',      subtitle: 'AI-powered announcements when shows or movies are added.' },
-    'tab-settings': { title: 'Settings',              subtitle: 'SMS Gateway, API keys, and system configuration.' }
+    'tab-settings': { title: 'Settings',              subtitle: 'Email-to-SMS, SMS Gateway, API keys, and system configuration.' }
 };
 
 document.querySelectorAll('.nav-links li').forEach(li => {
@@ -99,6 +99,14 @@ function populateUI(cfg) {
     setVal('arr-gemini-personality', cfg.arr?.gemini_personality ?? '');
     setVal('arr-audio-base-url',     cfg.arr?.audio_base_url    ?? '');
 
+    // ── Email-to-SMS
+    setVal('email-smtp-user',    cfg.email_sms?.smtp_user       ?? '');
+    setVal('email-smtp-pass',    cfg.email_sms?.smtp_pass       ?? '');
+    setVal('email-smtp-host',    cfg.email_sms?.smtp_host       ?? 'smtp.gmail.com');
+    setVal('email-smtp-port',    cfg.email_sms?.smtp_port       ?? 587);
+    setVal('email-from-name',    cfg.email_sms?.from_name       ?? 'JellyDad');
+    setVal('email-carrier-gw',   cfg.email_sms?.carrier_gateway ?? 'msg.fi.google.com');
+
     // ── SMS Gateway
     setVal('sms-gw-url',             cfg.sms_gateway?.base_url  ?? '');
     setVal('sms-gw-user',            cfg.sms_gateway?.username  ?? '');
@@ -189,6 +197,14 @@ function buildConfigFromUI() {
             base_url: getVal('sms-gw-url'),
             username: getVal('sms-gw-user'),
             password: getVal('sms-gw-pass')
+        },
+        email_sms: {
+            smtp_host:       getVal('email-smtp-host')  || 'smtp.gmail.com',
+            smtp_port:       parseInt(getVal('email-smtp-port')) || 587,
+            smtp_user:       getVal('email-smtp-user'),
+            smtp_pass:       getVal('email-smtp-pass'),
+            from_name:       getVal('email-from-name')  || 'JellyDad',
+            carrier_gateway: getVal('email-carrier-gw') || 'msg.fi.google.com'
         },
         elevenlabs: {
             api_key:  getVal('elevenlabs-key'),

@@ -211,20 +211,31 @@ app.post('/api/test/sms', async (req, res) => {
     try {
         const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
         const { tag } = req.body;
-        const { sendSMS } = require('./notifier');
+        const { sendSMS, sendEmailSMS } = require('./notifier');
 
         const entry = (config.notify_map || []).find(m => m.tag === tag);
         if (!entry?.phone) {
             return res.status(400).json({ error: `Tag "${tag}" not found or has no phone number configured.` });
         }
 
-        await sendSMS(
-            entry.phone,
-            '🎬 JellyDad is online! Test notification working perfectly.',
-            null,
-            config.sms_gateway
-        );
-        res.json({ success: true, message: `Test SMS sent to ${entry.phone}` });
+        // Try email-to-SMS first if configured
+        if (config.email_sms?.smtp_user && config.email_sms?.smtp_pass) {
+            await sendEmailSMS(
+                entry.phone,
+                '🎬 JellyDad is online! Test notification working perfectly.',
+                null,
+                config.email_sms
+            );
+            res.json({ success: true, message: `Test email-to-SMS sent to ${entry.phone}@${config.email_sms.carrier_gateway}` });
+        } else {
+            await sendSMS(
+                entry.phone,
+                '🎬 JellyDad is online! Test notification working perfectly.',
+                null,
+                config.sms_gateway
+            );
+            res.json({ success: true, message: `Test SMS sent to ${entry.phone}` });
+        }
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
