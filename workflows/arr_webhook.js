@@ -156,7 +156,7 @@ async function generateVoiceScript(personality, mediaInfo, recipientName, aiConf
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
+                'Authorization': `Bearer ${api_key}`
             },
             body: JSON.stringify({
                 model: model || 'deepseek-chat',
