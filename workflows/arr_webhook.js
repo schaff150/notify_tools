@@ -171,7 +171,7 @@ async function generateVoiceScript(personality, mediaInfo, recipientName, aiConf
 
         if (!resp.ok) {
             const errText = await resp.text();
-            log(`AI API error ${resp.status}: ${errText}`);
+            log(`AI API error ${resp.status} from ${apiUrl}: ${errText.substring(0, 300)}`);
             return null;
         }
 
@@ -188,10 +188,18 @@ async function generateVoiceScript(personality, mediaInfo, recipientName, aiConf
     return null;
 }
 
-// ─── Fallback Script (no AI) ────────────────────────────────────────────────
+// ─── Fallback Script (AI unavailable) ───────────────────────────────────────
 
-function buildFallbackScript(mediaInfo, recipientName) {
+function buildFallbackScript(mediaInfo, recipientName, personality) {
+    // Try to extract a tone from the personality prompt
+    const hasPersonality = personality && !personality.includes('friendly home media');
     const typeStr = mediaInfo.type === 'series' ? 'a new TV series' : 'a new movie';
+    
+    if (hasPersonality) {
+        // Use a neutral message that respects the personality without being chipper
+        return `${recipientName}, ${mediaInfo.title} (${mediaInfo.year}) has been added. ` +
+               `We received your request and it's now available on the server.`;
+    }
     return `Hey ${recipientName}! JellyDad here. Just wanted to let you know that ${mediaInfo.title} ` +
            `has just been added to the media server. Hope you enjoy it!`;
 }
@@ -393,8 +401,17 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
         log(`[${type}] Building message for ${recipientName}…`);
 
         // 1. Generate personalized voice script via AI
-        const voiceScript = await generateVoiceScript(personality, mediaInfo, recipientName, aiConfig)
-            || buildFallbackScript(mediaInfo, recipientName);
+        let voiceScript;
+        try {
+            voiceScript = await generateVoiceScript(personality, mediaInfo, recipientName, aiConfig);
+        } catch (e) {
+            log(`[${type}] AI generation error for ${recipientName}: ${e.message}`);
+            voiceScript = null;
+        }
+        if (!voiceScript) {
+            voiceScript = buildFallbackScript(mediaInfo, recipientName, personality);
+            log(`[${type}] Using fallback script for ${recipientName} (AI unavailable)`);
+        }
 
         // 2. Generate unique audio file for this recipient via ElevenLabs
         let audioUrl = null;
