@@ -3,7 +3,8 @@
 const PAGE_META = {
     'tab-jellyfin': { title: 'Jellyfin Notifier',    subtitle: 'Notify family members when new content appears on JellyDad.' },
     'tab-arr':      { title: 'Sonarr / Radarr',      subtitle: 'AI-powered announcements when shows or movies are added.' },
-    'tab-settings': { title: 'Settings',              subtitle: 'Email-to-SMS, SMS Gateway, API keys, and system configuration.' }
+    'tab-settings': { title: 'Settings',              subtitle: 'Email-to-SMS, SMS Gateway, API keys, and system configuration.' },
+    'tab-general':  { title: 'General Tools',         subtitle: 'Famguessr — daily geography reminder and other utilities.' }
 };
 
 document.querySelectorAll('.nav-links li').forEach(li => {
@@ -94,6 +95,11 @@ function populateUI(cfg) {
     setVal('radarr-url',             cfg.radarr?.url         ?? '');
     setVal('radarr-api-key',         cfg.radarr?.api_key     ?? '');
     setVal('radarr-recipients',      cfg.radarr?.recipients  ?? 'all');
+
+    // ── Famguessr
+    const fg = cfg.famguessr || {};
+    setChecked('famguessr-enable',   fg.enable           ?? false);
+    setVal('famguessr-template',     fg.message_template ?? 'Hey it is {day}{time} in {city}, {country}, have you done your FamGuessr yet?');
 
     // ── Arr AI / Audio
     setVal('arr-gemini-personality', cfg.arr?.gemini_personality ?? '');
@@ -215,6 +221,10 @@ function buildConfigFromUI() {
             api_key:  getVal('gemini-key'),
             base_url: getVal('gemini-base-url') || 'https://api.deepseek.com/v1',
             model:    getVal('gemini-model') || 'deepseek-v4-flash'
+        },
+        famguessr: {
+            enable:           document.getElementById('famguessr-enable').checked,
+            message_template: getVal('famguessr-template') || 'Hey it is {day}{time} in {city}, {country}, have you done your FamGuessr yet?'
         }
     };
 }
@@ -389,6 +399,127 @@ document.getElementById('btn-list-models').addEventListener('click', async () =>
         hint.style.color = 'var(--danger, #f87171)';
     } finally {
         btn.textContent = 'Check Available';
+        btn.disabled = false;
+    }
+});
+
+// ─── Famguessr ─────────────────────────────────────────────────────────────────
+
+// Auto-refresh status when the General tab is active
+let famguessrStatusInterval = null;
+
+// Called on tab switch — start/stop status polling
+document.querySelectorAll('.nav-links li').forEach(li => {
+    li.addEventListener('click', () => {
+        const tabId = li.dataset.tab;
+        if (tabId === 'tab-general') {
+            refreshFamguessrStatus();
+            if (!famguessrStatusInterval) {
+                famguessrStatusInterval = setInterval(refreshFamguessrStatus, 30000);
+            }
+        } else {
+            if (famguessrStatusInterval) {
+                clearInterval(famguessrStatusInterval);
+                famguessrStatusInterval = null;
+            }
+        }
+    });
+});
+
+async function refreshFamguessrStatus() {
+    try {
+        const resp = await fetch('/api/famguessr/status');
+        if (!resp.ok) return;
+        const status = await resp.json();
+        const elEnabled = document.getElementById('famguessr-status-enabled');
+        if (elEnabled) {
+            elEnabled.textContent = status.enabled ? 'Enabled' : 'Disabled';
+            elEnabled.className = 'status-pill ' + (status.enabled ? 'online' : 'offline');
+        }
+        const elNext = document.getElementById('famguessr-status-next');
+        if (elNext) {
+            elNext.textContent = status.nextSend
+                ? new Date(status.nextSend).toLocaleString()
+                : '—';
+        }
+        const elLast = document.getElementById('famguessr-status-last');
+        if (elLast) elLast.textContent = status.lastSend || '—';
+        const elPlace = document.getElementById('famguessr-status-place');
+        if (elPlace) {
+            if (status.lastPlace) {
+                elPlace.textContent = status.lastPlace.emoji + ' ' + status.lastPlace.city + ', ' + status.lastPlace.country;
+            } else {
+                elPlace.textContent = '—';
+            }
+        }
+    } catch (e) {
+        // Silently ignore status poll errors
+    }
+}
+
+// Manual send
+document.getElementById('btn-famguessr-send').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-famguessr-send');
+    btn.innerHTML = '<span class="spinner"></span> Sending…';
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/famguessr/send', { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        showToast('🌍 Famguessr sent to all family members!', 'success');
+        refreshFamguessrStatus();
+    } catch (e) {
+        showToast(`Send failed: ${e.message}`, 'error');
+    } finally {
+        btn.innerHTML = 'Send Famguessr Now';
+        btn.disabled = false;
+    }
+});
+
+// Test-to-Dad
+document.getElementById('btn-famguessr-test-dad').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-famguessr-test-dad');
+    const orig = btn.textContent;
+    btn.textContent = '⏳ Testing…';
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/famguessr/test-dad', { method: 'POST' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+        showToast('🧪 Test sent to Dad! Check his phone.', 'success');
+    } catch (e) {
+        showToast(`Test failed: ${e.message}`, 'error');
+    } finally {
+        btn.textContent = orig;
+        btn.disabled = false;
+    }
+});
+
+// Preview
+document.getElementById('btn-famguessr-preview').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-famguessr-preview');
+    btn.innerHTML = '<span class="spinner"></span> Generating…';
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/famguessr/preview');
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+        const box = document.getElementById('famguessr-preview-box');
+        const textEl = document.getElementById('famguessr-preview-text');
+        const metaEl = document.getElementById('famguessr-preview-meta');
+
+        textEl.textContent = data.message;
+        const emoji = data.place.emoji || '';
+        const dayInfo = data.dayDiffers
+            ? `Day differs from NY (local: ${data.localDay}, NY: ${data.nyDay})`
+            : (data.dayDiffers === false ? `Same day as NY (${data.localDay})` : 'Day comparison unavailable');
+        metaEl.textContent = `${emoji} ${data.place.city}, ${data.place.country} — Local time: ${data.localTime} — ${dayInfo}`;
+        box.style.display = 'block';
+    } catch (e) {
+        showToast(`Preview failed: ${e.message}`, 'error');
+    } finally {
+        btn.innerHTML = 'Preview Message';
         btn.disabled = false;
     }
 });

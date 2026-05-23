@@ -116,6 +116,7 @@ if (!fs.existsSync(configFile)) {
 
 const { handleJellyfinWebhook } = require('./workflows/jellyfin');
 const { handleArrWebhook }      = require('./workflows/arr_webhook');
+const famguessr                 = require('./workflows/famguessr');
 
 // ─── Config API ───────────────────────────────────────────────────────────────
 
@@ -130,8 +131,21 @@ app.get('/api/config', (req, res) => {
 
 app.post('/api/config', (req, res) => {
     try {
+        const oldConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const wasFgEnabled = oldConfig.famguessr?.enable;
         fs.writeFileSync(configFile, JSON.stringify(req.body, null, 2));
         console.log(`[${ts()}] [config] Configuration saved.`);
+        // Toggle Famguessr scheduler if enable state changed
+        const newFgEnabled = req.body.famguessr?.enable;
+        if (wasFgEnabled !== newFgEnabled) {
+            if (newFgEnabled) {
+                console.log(`[${ts()}] [config] Famguessr enabled — starting scheduler.`);
+                famguessr.setupScheduler(dataDir);
+            } else {
+                console.log(`[${ts()}] [config] Famguessr disabled — stopping scheduler.`);
+                famguessr.stopScheduler();
+            }
+        }
         res.json({ success: true });
     } catch (e) {
         res.status(500).json({ error: 'Failed to write config' });
@@ -336,6 +350,117 @@ app.post('/api/test/arr-mock', async (req, res) => {
     }
 });
 
+// ─── Famguessr Routes ──────────────────────────────────────────────────────────
+
+// Get famguessr config section
+app.get('/api/famguessr/config', (req, res) => {
+    try {
+        const fc = famguessr.getFamguessrConfig(dataDir);
+        res.json(fc);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to read famguessr config: ' + e.message });
+    }
+});
+
+// Save famguessr config (enable, message_template, etc.)
+app.post('/api/famguessr/config', (req, res) => {
+    try {
+        const fullConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        fullConfig.famguessr = { ...fullConfig.famguessr, ...req.body };
+        fs.writeFileSync(configFile, JSON.stringify(fullConfig, null, 2));
+        console.log(`[${ts()}] [famguessr] Config saved.`);
+
+        // Handle enable/disable toggle: start or stop scheduler
+        if (req.body.enable !== undefined) {
+            if (req.body.enable) {
+                famguessr.setupScheduler(dataDir);
+            } else {
+                famguessr.stopScheduler();
+            }
+        }
+
+        res.json({ success: true });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to save famguessr config: ' + e.message });
+    }
+});
+
+// Manually trigger a Famguessr send now
+app.post('/api/famguessr/send', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const { sendEmailSMS } = require('./notifier');
+        const result = await famguessr.sendFamguessr(config, dataDir, { sendEmailSMS }, true);
+        if (result.success) {
+            res.json({ success: true, place: result.place, sentCount: result.sentCount, message: result.message });
+        } else {
+            res.status(500).json({ error: result.error || 'Send failed' });
+        }
+    } catch (e) {
+        console.error(`[${ts()}] [famguessr] Manual send error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Send a test Famguessr to Dad only
+app.post('/api/famguessr/test-dad', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const { sendEmailSMS } = require('./notifier');
+        const result = await famguessr.sendFamguessrToTag(config, 'notify-dad', dataDir, { sendEmailSMS });
+        if (result.success) {
+            res.json({ success: true, message: result.message, place: result.place, tag: result.tag });
+        } else {
+            res.status(500).json({ error: result.error || 'Test send failed' });
+        }
+    } catch (e) {
+        console.error(`[${ts()}] [famguessr] Test-to-Dad error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Get scheduler status
+app.get('/api/famguessr/status', (req, res) => {
+    try {
+        const status = famguessr.getStatus(dataDir);
+        res.json(status);
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to get famguessr status: ' + e.message });
+    }
+});
+
+// Preview today's message without sending
+app.get('/api/famguessr/preview', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const fc = famguessr.getFamguessrConfig(dataDir);
+        const place = famguessr.CITIES[Math.floor(Math.random() * famguessr.CITIES.length)];
+
+        // Synchronous — uses Intl, no network dependency
+        const localData = famguessr.getLocalTimeAndDay(place.timezone);
+        const nyDay = famguessr.getNyDay();
+
+        const effectiveLocalData = localData || { time: 'local time', day: null, date: null };
+        const message = famguessr.buildMessage(
+            place,
+            effectiveLocalData,
+            nyDay,
+            fc.message_template
+        );
+
+        res.json({
+            place: { city: place.city, country: place.country, timezone: place.timezone, emoji: place.emoji },
+            localTime: effectiveLocalData.time,
+            localDay: effectiveLocalData.day,
+            nyDay: nyDay,
+            dayDiffers: nyDay && effectiveLocalData.day ? effectiveLocalData.day !== nyDay : null,
+            message
+        });
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to generate preview: ' + e.message });
+    }
+});
+
 // ─── Start Server ─────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -343,4 +468,17 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`  Jellyfin webhook: POST /api/webhooks/jellyfin`);
     console.log(`  Sonarr webhook:   POST /api/webhooks/sonarr`);
     console.log(`  Radarr webhook:   POST /api/webhooks/radarr`);
+
+    // Bootstrap Famguessr scheduler if enabled
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        if (config.famguessr?.enable) {
+            console.log(`[${ts()}] [famguessr] Bootstrapping scheduler on startup...`);
+            famguessr.setupScheduler(dataDir);
+        } else {
+            console.log(`[${ts()}] [famguessr] Disabled — scheduler not started.`);
+        }
+    } catch (e) {
+        console.error(`[${ts()}] [famguessr] Bootstrap error: ${e.message}`);
+    }
 });

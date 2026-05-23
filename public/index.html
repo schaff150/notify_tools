@@ -53,6 +53,9 @@
                 </svg>
                 Settings
             </li>
+            <li data-tab="tab-general" id="nav-general">
+                🌍 General
+            </li>
         </ul>
     </nav>
 
@@ -460,6 +463,103 @@
                                 <span class="text-muted">Audio Files</span>
                                 <code>/app/audio/</code>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════
+             TAB 4: GENERAL
+             ═══════════════════════════════════════════════════════════ -->
+        <section id="tab-general" class="tab-content">
+
+            <div class="grid-2">
+
+                <!-- Left: Famguessr -->
+                <div>
+                    <div class="card mb-3">
+                        <h3>🌍 Famguessr</h3>
+                        <p class="card-subtitle">Daily geography reminder — sends each family member a random place + local time every morning.</p>
+
+                        <div class="toggle-row mt-2">
+                            <div class="toggle-info">
+                                <strong>Famguessr Notifier</strong>
+                                <span>Daily morning geography reminder</span>
+                            </div>
+                            <label class="toggle">
+                                <input type="checkbox" id="famguessr-enable">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="form-group mt-3">
+                            <label>Daily Send Window</label>
+                            <input type="text" class="form-control" value="06:00 – 12:00" readonly disabled style="background:var(--surface, #1a1a2e);opacity:0.7;">
+                            <p class="form-hint">A random time within this window is picked each day. Same time for all family members.</p>
+                        </div>
+                    </div>
+
+                    <div class="card mb-3">
+                        <h3>📝 Message Template</h3>
+                        <p class="card-subtitle">Customize the notification message. Available placeholders: <code>{time}</code>, <code>{city}</code>, <code>{country}</code>, <code>{day}</code>.</p>
+                        <div class="form-group">
+                            <label>Template</label>
+                            <textarea id="famguessr-template" class="form-control" rows="3" placeholder="Hey it is {day}{time} in {city}, {country}, have you done your FamGuessr yet?"></textarea>
+                            <p class="form-hint"><strong>{day}</strong> is conditional — only appears when the place's day-of-week differs from New York. <strong>{time}</strong> is the local time at the random city.</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>🧪 Send & Preview</h3>
+                        <p class="card-subtitle">Force-send a Famguessr now to all family members, or preview what today's message would look like.</p>
+                        <div style="display:flex;gap:10px;margin-top:12px;">
+                            <button id="btn-famguessr-send" class="btn btn-primary" style="flex:1">Send Famguessr Now</button>
+                            <button id="btn-famguessr-test-dad" class="btn btn-sm btn-outline" style="color:var(--accent)">🧪 Test to Dad</button>
+                            <button id="btn-famguessr-preview" class="btn btn-secondary" style="flex:1">Preview Message</button>
+                        </div>
+                        <div id="famguessr-preview-box" style="display:none;margin-top:12px;padding:12px;background:var(--surface,#1a1a2e);border-radius:8px;border:1px solid var(--border,#2a2a4a);">
+                            <div style="font-size:12px;color:var(--muted,#888);margin-bottom:4px;">PREVIEW</div>
+                            <div id="famguessr-preview-text" style="font-size:14px;line-height:1.5;"></div>
+                            <div id="famguessr-preview-meta" style="font-size:11px;color:var(--muted,#888);margin-top:6px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Status -->
+                <div>
+                    <div class="card mb-3">
+                        <h3>📊 Status</h3>
+                        <p class="card-subtitle">Current Famguessr scheduler state.</p>
+                        <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;" id="famguessr-status">
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">Enabled</span>
+                                <span class="status-pill offline" id="famguessr-status-enabled">Disabled</span>
+                            </div>
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">Next Send</span>
+                                <code id="famguessr-status-next">—</code>
+                            </div>
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">Last Sent</span>
+                                <code id="famguessr-status-last">—</code>
+                            </div>
+                            <div class="flex-between text-sm">
+                                <span class="text-muted">Last Place</span>
+                                <code id="famguessr-status-place">—</code>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>ℹ️ How It Works</h3>
+                        <p class="card-subtitle">Every morning between 06:00–12:00, Famguessr picks a random city from ~500 worldwide locations and sends each family member a text with the local time at that place.</p>
+                        <div class="info-box blue mt-2">
+                            <strong>Requirements:</strong> Email-to-SMS must be configured in Settings. Each family member needs a phone number in the Notify Tag Map (Jellyfin tab).
+                        </div>
+                        <div class="info-box green mt-2">
+                            <strong>Fallback:</strong> If the WorldTimeAPI is unreachable, the message will say "local time" instead of a specific time. The daily reminder still goes out.
                         </div>
                     </div>
                 </div>
