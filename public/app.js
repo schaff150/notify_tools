@@ -114,7 +114,8 @@ function populateUI(cfg) {
     setVal('elevenlabs-key',         cfg.elevenlabs?.api_key  ?? '');
     setVal('elevenlabs-voice-id',    cfg.elevenlabs?.voice_id ?? '');
     setVal('gemini-key',             cfg.gemini?.api_key      ?? '');
-    setVal('gemini-model',           cfg.gemini?.model        ?? 'gemini-1.5-flash');
+    setVal('gemini-base-url',        cfg.gemini?.base_url     ?? 'https://api.deepseek.com/v1');
+    setVal('gemini-model',           cfg.gemini?.model        ?? 'deepseek-v4-flash');
 
     // Update sidebar badges
     updateBadge('badge-jellyfin', cfg.jellyfin?.enable);
@@ -211,8 +212,9 @@ function buildConfigFromUI() {
             voice_id: getVal('elevenlabs-voice-id')
         },
         gemini: {
-            api_key: getVal('gemini-key'),
-            model:   getVal('gemini-model') || 'gemini-1.5-flash'
+            api_key:  getVal('gemini-key'),
+            base_url: getVal('gemini-base-url') || 'https://api.deepseek.com/v1',
+            model:    getVal('gemini-model') || 'deepseek-v4-flash'
         }
     };
 }

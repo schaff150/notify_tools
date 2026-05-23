@@ -414,12 +414,17 @@
                     </div>
 
                     <div class="card mb-3">
-                        <h3>🧠 Gemini AI</h3>
-                        <p class="card-subtitle">Used to generate personalized notification scripts. Without this, a built-in template message is used.</p>
+                        <h3>🧠 AI Model</h3>
+                        <p class="card-subtitle">OpenAI-compatible API for generating personalized voice scripts. Uses DeepSeek by default — works with any compatible provider.</p>
                         <div class="form-group">
                             <label>API Key</label>
-                            <input type="password" id="gemini-key" class="form-control" placeholder="AIza••••••••••••••••••••••••••••••">
-                            <p class="form-hint">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent)">Google AI Studio</a>.</p>
+                            <input type="password" id="gemini-key" class="form-control" placeholder="sk-••••••••••••••••••••••••••••••">
+                            <p class="form-hint">DeepSeek keys start with <code>sk-</code>. Get one at <a href="https://platform.deepseek.com" target="_blank" style="color:var(--accent)">platform.deepseek.com</a>.</p>
+                        </div>
+                        <div class="form-group">
+                            <label>API Base URL</label>
+                            <input type="text" id="gemini-base-url" class="form-control" placeholder="https://api.deepseek.com/v1">
+                            <p class="form-hint">OpenAI-compatible endpoint. Works with DeepSeek, Groq, OpenRouter, etc.</p>
                         </div>
                         <div class="form-group">
                             <label>Model</label>

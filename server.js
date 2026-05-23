@@ -86,7 +86,8 @@ const defaultConfig = {
     },
     gemini: {
         api_key: '',
-        model:   'gemini-1.5-flash'  // Change here if you need a different model
+        model:   'deepseek-v4-flash',
+        base_url: 'https://api.deepseek.com/v1'   // OpenAI-compatible endpoint
     }
 };
 
@@ -241,23 +242,23 @@ app.post('/api/test/sms', async (req, res) => {
     }
 });
 
-// List available Gemini models for the configured API key
+// List available AI models from the configured endpoint
 app.get('/api/test/gemini-models', async (req, res) => {
     try {
         const config  = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-        const apiKey  = config.gemini?.api_key;
-        if (!apiKey) return res.status(400).json({ error: 'No Gemini API key configured.' });
+        const aiCfg   = config.gemini || {};
+        const apiKey  = aiCfg.api_key;
+        const baseUrl = (aiCfg.base_url || 'https://api.deepseek.com/v1').replace(/\/$/, '');
+        if (!apiKey) return res.status(400).json({ error: 'No AI API key configured.' });
 
-        const resp = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
-        );
+        const resp = await fetch(`${baseUrl}/models`, {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+        });
         const data = await resp.json();
         if (!resp.ok) return res.status(resp.status).json(data);
-
-        // Filter to only generateContent-capable models, sort by name
-        const models = (data.models || [])
-            .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
-            .map(m => m.name.replace('models/', ''))
+        const models = (data.data || [])
+            .filter(m => m.id && !m.id.includes('embed') && !m.id.includes('moderation'))
+            .map(m => m.id)
             .sort();
         res.json({ models });
     } catch (e) {

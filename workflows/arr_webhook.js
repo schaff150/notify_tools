@@ -118,67 +118,76 @@ function extractName(tag) {
     return tag;
 }
 
-// ─── Gemini Voice Script Generation ──────────────────────────────────────────
+// ─── AI Voice Script Generation (OpenAI-compatible) ────────────────────────
 
 /**
- * Ask Gemini to write a spoken voice announcement tailored to one recipient.
- * This is meant to be read aloud by ElevenLabs, not sent as an SMS body,
- * so it can be conversational, expressive, and longer than 160 chars.
+ * Ask the configured AI to write a spoken voice announcement.
+ * Uses OpenAI-compatible chat completions API (DeepSeek, Gemini via OpenAI endpoint, etc.)
  */
-async function generateVoiceScript(personality, mediaInfo, recipientName, apiKey, model) {
-    if (!apiKey) {
-        log(`No Gemini API key — using fallback for ${recipientName}.`);
+async function generateVoiceScript(personality, mediaInfo, recipientName, aiConfig) {
+    const { api_key, model, base_url } = aiConfig || {};
+    if (!api_key) {
+        log(`No AI API key — using fallback for ${recipientName}.`);
         return null;
     }
 
     const genreStr  = (mediaInfo.genres || []).join(', ') || 'Unknown';
     const typeLabel = mediaInfo.type === 'series' ? 'TV series' : 'movie';
 
-    const prompt =
+    const systemPrompt =
         `PERSONALITY AND TONE (follow this strictly):\n${personality}\n\n` +
-        `TASK:\n` +
-        `You are speaking directly to ${recipientName}. Address them by name.\n` +
-        `A new ${typeLabel} was just added to the media server:\n` +
-        `Title: ${mediaInfo.title}\n` +
-        `Year: ${mediaInfo.year}\n` +
-        `Genres: ${genreStr}\n\n` +
         `RULES:\n` +
         `- Write ONLY the spoken script — no emojis, no labels, no quotation marks, just the words to be read aloud.\n` +
         `- Stay completely in the character and tone described above. Do NOT be generic or enthusiastic unless the personality says so.\n` +
         `- Follow any length instructions in the personality. If none are given, aim for 2-3 sentences.`;
 
+    const userPrompt =
+        `You are speaking directly to ${recipientName}. Address them by name.\n` +
+        `A new ${typeLabel} was just added to the media server:\n` +
+        `Title: ${mediaInfo.title}\n` +
+        `Year: ${mediaInfo.year}\n` +
+        `Genres: ${genreStr}`;
+
+    const apiUrl = `${(base_url || 'https://api.deepseek.com/v1').replace(/\/$/, '')}/chat/completions`;
+
     try {
-        const resp = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: { maxOutputTokens: 1000, temperature: 0.7 }
-                })
-            }
-        );
+        const resp = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: model || 'deepseek-chat',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userPrompt }
+                ],
+                max_tokens: 1000,
+                temperature: 0.7
+            })
+        });
 
         if (!resp.ok) {
             const errText = await resp.text();
-            log(`Gemini API error ${resp.status}: ${errText}`);
+            log(`AI API error ${resp.status}: ${errText}`);
             return null;
         }
 
         const data = await resp.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        const text = data.choices?.[0]?.message?.content?.trim();
+
         if (text) {
-            log(`Gemini script for ${recipientName}: "${text.substring(0, 80)}…"`);
+            log(`AI script for ${recipientName}: "${text.substring(0, 80)}…"`);
             return text;
         }
     } catch (e) {
-        log(`Gemini fetch error: ${e.message}`);
+        log(`AI fetch error: ${e.message}`);
     }
     return null;
 }
 
-// ─── Fallback Script (no Gemini) ─────────────────────────────────────────────
+// ─── Fallback Script (no AI) ────────────────────────────────────────────────
 
 function buildFallbackScript(mediaInfo, recipientName) {
     const typeStr = mediaInfo.type === 'series' ? 'a new TV series' : 'a new movie';
@@ -372,8 +381,7 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
 
     const arrCfg       = config.arr || {};
     const personality  = arrCfg.gemini_personality || 'You are a friendly home media server assistant. Keep messages brief and natural.';
-    const geminiKey    = config.gemini?.api_key;
-    const geminiModel  = config.gemini?.model || 'gemini-1.5-flash';
+    const aiConfig     = config.gemini || {};
     const hasElevenLabs = !!(config.elevenlabs?.api_key && config.elevenlabs?.voice_id);
     const hasAudioBase  = !!arrCfg.audio_base_url;
 
@@ -383,8 +391,8 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
         const recipientName = extractName(tag);
         log(`[${type}] Building message for ${recipientName}…`);
 
-        // 1. Generate personalized voice script via Gemini
-        const voiceScript = await generateVoiceScript(personality, mediaInfo, recipientName, geminiKey, geminiModel)
+        // 1. Generate personalized voice script via AI
+        const voiceScript = await generateVoiceScript(personality, mediaInfo, recipientName, aiConfig)
             || buildFallbackScript(mediaInfo, recipientName);
 
         // 2. Generate unique audio file for this recipient via ElevenLabs
