@@ -1,6 +1,6 @@
 const fs   = require('fs');
 const path = require('path');
-const { sendSMS } = require('../notifier');
+const { sendEmailSMS } = require('../notifier');
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
 
@@ -237,7 +237,7 @@ async function handleJellyfinWebhook(data, config, dataDir) {
         try {
             const message = buildMessage(data);
             log(`  Message: "${message}"`);
-            await sendSMS(phone, message, null, config.sms_gateway);
+            await sendEmailSMS(phone, message, null, config.email_sms);
             history.push(histKey);
             sentCount++;
 

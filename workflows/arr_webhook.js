@@ -1,6 +1,6 @@
 const fs   = require('fs');
 const path = require('path');
-const { sendSMS } = require('../notifier');
+const { sendEmailSMS } = require('../notifier');
 
 function log(msg) {
     const ts = new Date().toISOString().replace('T',' ').substring(0,19);
@@ -410,7 +410,7 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
             : voiceScript;
 
         try {
-            await sendSMS(phone, smsBody, audioUrl, config.sms_gateway);
+            await sendEmailSMS(phone, smsBody, audioUrl, config.email_sms);
             sentCount++;
             log(`[${type}] Sent to ${recipientName} (${phone}).`);
         } catch (e) {

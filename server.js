@@ -72,6 +72,14 @@ const defaultConfig = {
         username:  '',   // Shown on the app Home screen
         password:  ''    // Shown on the app Home screen
     },
+    email_sms: {
+        smtp_host: 'smtp.gmail.com',
+        smtp_port: 587,
+        smtp_user: '',          // Gmail address (e.g. you@gmail.com)
+        smtp_pass: '',          // Gmail App Password (not your regular password)
+        from_name: 'JellyDad',  // Shows as sender name
+        carrier_gateway: 'msg.fi.google.com'   // Google Fi SMS gateway
+    },
     elevenlabs: {
         api_key: '',
         voice_id: 'EXAVITQu4vr4xnSDxMaL'  // Default: "Bella" voice
