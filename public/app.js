@@ -371,7 +371,7 @@ document.getElementById('btn-test-arr').addEventListener('click', async () => {
     }
 });
 
-// ─── List Gemini Models ───────────────────────────────────────────────────────
+// ─── List AI Models ────────────────────────────────────────────────────────────
 
 document.getElementById('btn-list-models').addEventListener('click', async () => {
     const btn  = document.getElementById('btn-list-models');

@@ -268,18 +268,18 @@
                 <!-- Right col: AI + Audio -->
                 <div>
                     <div class="card mb-3">
-                        <h3>🤖 Gemini AI Personality</h3>
-                        <p class="card-subtitle">This prompt is prepended before asking Gemini to write the notification message. Make JellyDad sound exactly how you want.</p>
+                        <h3>🤖 AI Personality</h3>
+                        <p class="card-subtitle">This prompt is prepended before asking the AI to write the notification message. Make JellyDad sound exactly how you want.</p>
                         <div class="form-group">
                             <label>Personality Prompt</label>
                             <textarea id="arr-gemini-personality" class="form-control" rows="5" placeholder="You are JellyDad, an enthusiastic home media server announcer. Keep messages short and family-friendly."></textarea>
-                            <p class="form-hint">Gemini will generate a fun, personalized SMS announcement. Without a Gemini API key (see Settings), a default template message is used instead.</p>
+                            <p class="form-hint">The AI will generate a fun, personalized SMS announcement. Without an API key (see Settings), a default template message is used instead.</p>
                         </div>
                     </div>
 
                     <div class="card">
                         <h3>🔊 ElevenLabs TTS Audio</h3>
-                        <p class="card-subtitle">When configured, Gemini's script is converted to audio and sent as an MMS attachment via Nginx. Optional — falls back to text-only SMS if not set.</p>
+                        <p class="card-subtitle">When configured, the AI's script is converted to audio and sent as an MMS attachment via Nginx. Optional — falls back to text-only SMS if not set.</p>
 
                         <div class="info-box blue mb-3">
                             The audio file will be saved to <code>/app/audio</code> inside the container. Map this volume to a path your Nginx instance serves publicly so the link in the SMS is accessible.
@@ -294,7 +294,7 @@
 
                     <div class="card mt-3">
                         <h3>&#129514; Test Arr Notification</h3>
-                        <p class="card-subtitle">Fire the full pipeline with a fake movie &mdash; Gemini writes a personalized script per recipient, ElevenLabs generates individual audio files, and SMS is sent to all configured recipients. May take 10&ndash;20 seconds.</p>
+                        <p class="card-subtitle">Fire the full pipeline with a fake movie &mdash; AI writes a personalized script per recipient, ElevenLabs generates individual audio files, and SMS is sent to all configured recipients. May take 10&ndash;20 seconds.</p>
                         <button id="btn-test-arr" class="btn btn-secondary w-full mt-2">&#127909; Send Test Movie Notification</button>
                     </div>
                 </div>
@@ -429,7 +429,7 @@
                         <div class="form-group">
                             <label>Model</label>
                             <div style="display:flex;gap:8px;align-items:center;">
-                                <input type="text" id="gemini-model" class="form-control" placeholder="gemini-1.5-flash" style="flex:1">
+                                <input type="text" id="gemini-model" class="form-control" placeholder="deepseek-v4-flash" style="flex:1">
                                 <button id="btn-list-models" class="btn btn-sm btn-outline" style="white-space:nowrap">Check Available</button>
                             </div>
                             <p class="form-hint" id="gemini-model-hint">Click Check Available to see what models your API key supports.</p>

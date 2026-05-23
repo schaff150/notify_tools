@@ -254,15 +254,22 @@ app.get('/api/test/gemini-models', async (req, res) => {
         const resp = await fetch(`${baseUrl}/models`, {
             headers: { 'Authorization': `Bearer ${apiKey}` }
         });
-        const data = await resp.json();
-        if (!resp.ok) return res.status(resp.status).json(data);
+        const text = await resp.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = {}; }
+
+        if (!resp.ok) {
+            const errMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : (data.error || text);
+            return res.status(resp.status).json({ error: String(errMsg).substring(0, 500) });
+        }
         const models = (data.data || [])
             .filter(m => m.id && !m.id.includes('embed') && !m.id.includes('moderation'))
             .map(m => m.id)
             .sort();
+        if (models.length === 0) return res.json({ models: ['(no models returned)'] });
         res.json({ models });
     } catch (e) {
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: e.message || String(e) });
     }
 });
 
