@@ -135,11 +135,12 @@ async function generateVoiceScript(personality, mediaInfo, recipientName, aiConf
     const typeLabel = mediaInfo.type === 'series' ? 'TV series' : 'movie';
 
     const systemPrompt =
-        `PERSONALITY AND TONE (follow this strictly):\n${personality}\n\n` +
+        `ABSOLUTE REQUIREMENT — you MUST embody this exact persona. Do not deviate:\n${personality}\n\n` +
         `RULES:\n` +
-        `- Write ONLY the spoken script — no emojis, no labels, no quotation marks, just the words to be read aloud.\n` +
-        `- Stay completely in the character and tone described above. Do NOT be generic or enthusiastic unless the personality says so.\n` +
-        `- Follow any length instructions in the personality. If none are given, aim for 2-3 sentences.`;
+        `- Write ONLY the spoken script. No emojis, no labels, no quotation marks, no meta-commentary.\n` +
+        `- Your tone, word choice, and personality must 100% match the persona above. If the persona is grumpy, you are grumpy. If it uses Scottish slang, you use Scottish slang.\n` +
+        `- Do NOT default to cheerful, enthusiastic, or friendly unless explicitly told to in the persona.\n` +
+        `- Keep to 2-4 sentences unless the persona specifies otherwise.`;
 
     const userPrompt =
         `You are speaking directly to ${recipientName}. Address them by name.\n` +
@@ -411,11 +412,10 @@ async function handleArrWebhook(data, config, type, audioDir, dataDir) {
         }
 
         // 3. SMS body:
-        //    - If audio was generated: brief teaser line (the link is appended by notifier.js)
-        //    - If no audio: send the voice script as the text message
-        const smsBody = audioUrl
-            ? `📻 JellyDad has a personal message for ${recipientName}!`
-            : voiceScript;
+        //    - If audio was generated: use the voice script itself as the message
+        //      (the audio link is appended by notifier.js)
+        //    - If no audio: send the full voice script
+        const smsBody = voiceScript;
 
         try {
             await sendEmailSMS(phone, smsBody, audioUrl, config.email_sms);
