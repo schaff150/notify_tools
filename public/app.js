@@ -526,9 +526,134 @@ document.getElementById('btn-famguessr-preview').addEventListener('click', async
 
 // ─── Announcements ─────────────────────────────────────────────────────────────
 
+let announceConfig = {};  // { enable, prompts: { type: { core, tone, examples[] } } }
+
+// Load announcements config and populate UI
+async function loadAnnounceConfig() {
+    try {
+        const resp = await fetch('/api/announcements/config');
+        if (!resp.ok) return;
+        announceConfig = await resp.json();
+        populateAnnounceDropdown();
+        renderPromptsEditor();
+    } catch (e) { /* ignore */ }
+}
+
+function populateAnnounceDropdown() {
+    const sel = document.getElementById('announce-type');
+    const prompts = announceConfig.prompts || {};
+    sel.innerHTML = '';
+    for (const [key, p] of Object.entries(prompts)) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        const icons = { take_out_trash:'🚮', dinner_time:'🍽️', bedtime:'🌙', wake_up:'☀️', general_reminder:'🔔' };
+        opt.textContent = `${icons[key] || '📢'} ${p.core}`;
+        sel.appendChild(opt);
+    }
+}
+
+function renderPromptsEditor() {
+    const list = document.getElementById('announce-prompts-list');
+    const prompts = announceConfig.prompts || {};
+    list.innerHTML = '';
+
+    for (const [key, p] of Object.entries(prompts)) {
+        const card = document.createElement('div');
+        card.className = 'prompt-card';
+        card.dataset.type = key;
+        card.innerHTML = `
+            <div class="prompt-card-header">
+                <div>
+                    <strong>Type ID:</strong> <code>${escHtml(key)}</code>
+                    <span style="margin-left:8px;font-size:12px;color:var(--text-secondary)">(used in HA script calls)</span>
+                </div>
+                <button class="btn-delete" onclick="deletePrompt('${escHtml(key)}')">🗑️ Delete</button>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Core Message</label>
+                    <input type="text" class="form-control prompt-core" value="${escHtml(p.core || '')}" placeholder="Take out the trash.">
+                </div>
+                <div class="form-group">
+                    <label>Tone / Style Direction</label>
+                    <input type="text" class="form-control prompt-tone" value="${escHtml(p.tone || '')}" placeholder="slightly snarky Scottish sysadmin">
+                </div>
+            </div>
+            <div class="form-row form-row-full">
+                <div class="form-group">
+                    <label>Example Scripts <span style="font-weight:400;color:var(--text-secondary)">(one per line — guides the AI's style)</span></label>
+                    <textarea class="form-control prompt-examples" rows="3" placeholder="The bin bags are staging a coup...&#10;Right, trash collection. Don't make me...">${escHtml((p.examples || []).join('\n'))}</textarea>
+                </div>
+            </div>
+        `;
+        list.appendChild(card);
+    }
+}
+
+function deletePrompt(key) {
+    if (!confirm(`Delete announcement type "${key}"? This cannot be undone.`)) return;
+    delete announceConfig.prompts[key];
+    renderPromptsEditor();
+    populateAnnounceDropdown();
+    showToast(`Deleted "${key}". Click Save Prompts to persist.`, 'info');
+}
+
+document.getElementById('btn-announce-add').addEventListener('click', () => {
+    const id = prompt('Enter a type ID (snake_case, e.g. "feeding_cats"):');
+    if (!id) return;
+    if (announceConfig.prompts[id]) {
+        showToast(`"${id}" already exists.`, 'error');
+        return;
+    }
+    announceConfig.prompts[id] = { core: '', tone: '', examples: [] };
+    renderPromptsEditor();
+    populateAnnounceDropdown();
+    document.getElementById('announce-type').value = id;
+    showToast(`Added "${id}". Fill in the fields and click Save Prompts.`, 'info');
+});
+
+// Save prompts to config
+document.getElementById('btn-announce-save-prompts').addEventListener('click', async () => {
+    // Collect from editor
+    const prompts = {};
+    document.querySelectorAll('.prompt-card').forEach(card => {
+        const key = card.dataset.type;
+        prompts[key] = {
+            core: card.querySelector('.prompt-core')?.value?.trim() || '',
+            tone: card.querySelector('.prompt-tone')?.value?.trim() || '',
+            examples: (card.querySelector('.prompt-examples')?.value || '')
+                .split('\n')
+                .map(s => s.trim())
+                .filter(s => s.length > 0)
+        };
+    });
+    announceConfig.prompts = prompts;
+
+    const btn = document.getElementById('btn-announce-save-prompts');
+    btn.innerHTML = '<span class="spinner"></span> Saving…';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch('/api/announcements/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompts })
+        });
+        if (!resp.ok) throw new Error('Save failed');
+        populateAnnounceDropdown();
+        showToast('💾 Prompts saved!', 'success');
+    } catch (e) {
+        showToast('Save failed: ' + e.message, 'error');
+    } finally {
+        btn.innerHTML = '💾 Save Prompts';
+        btn.disabled = false;
+    }
+});
+
 // Generate full announcement (LLM + TTS)
 document.getElementById('btn-announce-generate').addEventListener('click', async () => {
     const type = document.getElementById('announce-type').value;
+    if (!type) { showToast('No announcement types configured.', 'error'); return; }
     const btn = document.getElementById('btn-announce-generate');
     btn.innerHTML = '<span class="spinner"></span> Generating…';
     btn.disabled = true;
@@ -563,6 +688,7 @@ document.getElementById('btn-announce-generate').addEventListener('click', async
 // Preview only (text, no audio)
 document.getElementById('btn-announce-preview').addEventListener('click', async () => {
     const type = document.getElementById('announce-type').value;
+    if (!type) { showToast('No announcement types configured.', 'error'); return; }
     const btn = document.getElementById('btn-announce-preview');
     btn.innerHTML = '<span class="spinner"></span> Previewing…';
     btn.disabled = true;
@@ -605,3 +731,4 @@ function fixEmptyTable(tbodyId, colspan, emptyMsg) {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 loadConfig();
+loadAnnounceConfig();

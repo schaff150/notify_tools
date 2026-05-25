@@ -475,6 +475,11 @@
              ═══════════════════════════════════════════════════════════ -->
         <section id="tab-general" class="tab-content">
 
+            <!-- ── Famguessr ── -->
+            <details class="tool-section" open>
+                <summary class="tool-summary">🌍 Famguessr <span class="summary-hint">Daily geography reminders</span></summary>
+                <div class="tool-body">
+
             <div class="grid-2">
 
                 <!-- Left: Famguessr -->
@@ -565,20 +570,22 @@
                 </div>
 
             </div>
+                </div>
+            </details>
 
             <!-- ── Announcements ── -->
-            <div class="card mt-3">
-                <h3>📢 Announcements</h3>
-                <p class="card-subtitle">Generate AI-customized voice announcements for Home Assistant. Each press creates a unique variant with a random ElevenLabs voice.</p>
+            <details class="tool-section" open>
+                <summary class="tool-summary">📢 Announcements <span class="summary-hint">AI-generated voice broadcasts for Home Assistant</span></summary>
+                <div class="tool-body">
+
+            <div class="card mb-3">
+                <h3>🎙️ Generate Announcement</h3>
+                <p class="card-subtitle">Each press creates a unique variant with a random ElevenLabs voice. Uses your custom prompts below.</p>
 
                 <div class="form-group mt-2">
                     <label>Announcement Type</label>
                     <select id="announce-type" class="form-control">
-                        <option value="take_out_trash">🚮 Take Out Trash</option>
-                        <option value="dinner_time">🍽️ Dinner Time</option>
-                        <option value="bedtime">🌙 Bedtime</option>
-                        <option value="wake_up">☀️ Wake Up</option>
-                        <option value="general_reminder">🔔 General Reminder</option>
+                        <!-- Populated by JS from config -->
                     </select>
                 </div>
 
@@ -593,6 +600,27 @@
                     <div id="announce-meta" style="font-size:11px;color:var(--muted,#888);"></div>
                 </div>
             </div>
+
+            <!-- Prompts Editor -->
+            <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                    <div>
+                        <h3>✏️ Custom Prompts</h3>
+                        <p class="card-subtitle">Edit core messages, tone, and example scripts. Changes affect future generations.</p>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button id="btn-announce-add" class="btn btn-sm btn-outline">+ Add New</button>
+                        <button id="btn-announce-save-prompts" class="btn btn-sm btn-primary">💾 Save Prompts</button>
+                    </div>
+                </div>
+                <div id="announce-prompts-list">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+                </div>
+            </details>
+
         </section>
 
     </main>

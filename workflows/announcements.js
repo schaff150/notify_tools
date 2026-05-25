@@ -6,10 +6,9 @@ function log(msg) {
     console.log(`[${ts}] [announcements] ${msg}`);
 }
 
-// ─── Prompt Templates ─────────────────────────────────────────────────────────
-// Each message type: core, tone, and style examples
+// ─── Default Prompts (fallback when config has none) ─────────────────────────
 
-const PROMPTS = {
+const DEFAULT_PROMPTS = {
     take_out_trash: {
         core: "Take out the trash.",
         tone: "slightly snarky but helpful, like a Scottish sysadmin who's seen this movie before",
@@ -52,10 +51,44 @@ const PROMPTS = {
     }
 };
 
-function listMessageTypes() {
-    return Object.keys(PROMPTS).map(key => ({
+// ─── Config Helpers ────────────────────────────────────────────────────────────
+
+/**
+ * Get announcement prompts from config, falling back to defaults.
+ * Always returns a clone so callers can't mutate the originals.
+ */
+function getPrompts(config) {
+    const cfg = (config && config.announcements) || {};
+    const prompts = cfg.prompts || {};
+    // Merge defaults for any missing types
+    const merged = {};
+    for (const key of Object.keys(DEFAULT_PROMPTS)) {
+        merged[key] = prompts[key] || DEFAULT_PROMPTS[key];
+    }
+    // Add any custom types from config
+    for (const key of Object.keys(prompts)) {
+        if (!merged[key]) merged[key] = prompts[key];
+    }
+    return JSON.parse(JSON.stringify(merged));
+}
+
+/**
+ * Get the full announcements config section.
+ */
+function getAnnouncementsConfig(config) {
+    const cfg = (config && config.announcements) || {};
+    return {
+        enable: cfg.enable !== false,  // default true
+        prompts: getPrompts(config)
+    };
+}
+
+function listMessageTypes(config) {
+    const prompts = getPrompts(config);
+    return Object.keys(prompts).map(key => ({
         type: key,
-        core: PROMPTS[key].core
+        core: prompts[key].core,
+        tone: prompts[key].tone
     }));
 }
 
@@ -63,12 +96,8 @@ function listMessageTypes() {
 
 let voiceCache = [];
 let voiceCacheTime = 0;
-const VOICE_CACHE_TTL = 3600 * 1000; // 1 hour in ms
+const VOICE_CACHE_TTL = 3600 * 1000;
 
-/**
- * Fetch all English, non-Prime voices from ElevenLabs.
- * Cached for 1 hour.
- */
 async function getEnglishVoices(elevenConfig) {
     const now = Date.now();
     if (voiceCache.length > 0 && (now - voiceCacheTime) < VOICE_CACHE_TTL) {
@@ -95,20 +124,15 @@ async function getEnglishVoices(elevenConfig) {
             const labels = v.labels || {};
             const lang = (labels.language || '').toLowerCase();
             const category = (v.category || '').toLowerCase();
-
-            // Must be English
             if (!lang.startsWith('en')) return false;
-            // Skip Prime tier (most expensive)
             if (category === 'prime') return false;
             if (labels.use_case === 'high_quality') return false;
-
             return true;
         });
 
         voiceCache = voices;
         voiceCacheTime = now;
         log(`Cached ${voices.length} English voices (non-Prime).`);
-
         return voices;
     } catch (e) {
         log(`Error fetching voices: ${e.message}`);
@@ -116,14 +140,10 @@ async function getEnglishVoices(elevenConfig) {
     }
 }
 
-// ─── AI Variant Generation (OpenAI-compatible / DeepSeek) ────────────────────
+// ─── AI Variant Generation ────────────────────────────────────────────────────
 
-/**
- * Call the configured AI to generate a creative variant of a core message.
- * Uses config.gemini section (base_url + api_key + model).
- */
-async function generateVariant(messageType, aiConfig, coreOverride, toneOverride) {
-    const prompt = PROMPTS[messageType];
+async function generateVariant(messageType, aiConfig, prompts, coreOverride, toneOverride) {
+    const prompt = prompts[messageType];
     if (!prompt) {
         throw new Error(`Unknown message type: ${messageType}`);
     }
@@ -174,7 +194,7 @@ async function generateVariant(messageType, aiConfig, coreOverride, toneOverride
         if (!resp.ok) {
             const errText = await resp.text();
             log(`AI API error ${resp.status}: ${errText.substring(0, 200)}`);
-            return prompt.core; // fallback to core message
+            return prompt.core;
         }
 
         const data = await resp.json();
@@ -188,15 +208,11 @@ async function generateVariant(messageType, aiConfig, coreOverride, toneOverride
         log(`AI fetch error: ${e.message}`);
     }
 
-    return prompt.core; // fallback
+    return prompt.core;
 }
 
 // ─── ElevenLabs TTS ───────────────────────────────────────────────────────────
 
-/**
- * Generate TTS audio using a specific ElevenLabs voice.
- * Returns the filename (saved to audioDir) or null on failure.
- */
 async function generateTTS(text, voiceId, elevenConfig, audioDir) {
     const { api_key } = elevenConfig || {};
     if (!api_key || !voiceId || !text) return null;
@@ -237,40 +253,29 @@ async function generateTTS(text, voiceId, elevenConfig, audioDir) {
         fs.writeFileSync(filePath, audioBuffer);
         log(`Audio saved: ${filename} (${audioBuffer.length} bytes)`);
         return filename;
-
     } catch (e) {
         log(`ElevenLabs TTS fetch error: ${e.message}`);
         return null;
     }
 }
 
-// ─── Main Handler ─────────────────────────────────────────────────────────────
+// ─── Main Handlers ────────────────────────────────────────────────────────────
 
-/**
- * Generate a full announcement (variant + TTS + random voice).
- *
- * @param {string}  messageType   - One of: take_out_trash, dinner_time, bedtime, wake_up, general_reminder
- * @param {object}  config        - Full config.json (needs gemini, elevenlabs, arr.audio_base_url)
- * @param {string}  audioDir      - Path to audio/ directory
- * @param {object}  opts          - Optional overrides
- * @param {string}  opts.coreOverride  - Override core message text
- * @param {string}  opts.toneOverride  - Override tone description
- * @returns {{ audio_url: string|null, variant: string, voice: string, original: string }}
- */
 async function generateAnnouncement(messageType, config, audioDir, opts = {}) {
     const aiConfig      = config.gemini || {};
     const elevenConfig  = config.elevenlabs || {};
     const audioBaseUrl  = (config.arr?.audio_base_url || 'https://audio.dadtv.me/audio').replace(/\/$/, '');
+    const prompts       = getPrompts(config);
 
     // 1. Generate creative variant via AI
     const variant = await generateVariant(
-        messageType, aiConfig, opts.coreOverride, opts.toneOverride
+        messageType, aiConfig, prompts, opts.coreOverride, opts.toneOverride
     );
 
     // 2. Pick random English voice
     const voices = await getEnglishVoices(elevenConfig);
     let voiceName = 'default';
-    let voiceId = elevenConfig.voice_id; // fallback to configured default
+    let voiceId = elevenConfig.voice_id;
 
     if (voices.length > 0) {
         const pick = voices[Math.floor(Math.random() * voices.length)];
@@ -286,7 +291,7 @@ async function generateAnnouncement(messageType, config, audioDir, opts = {}) {
     const audioUrl = filename ? `${audioBaseUrl}/${filename}` : null;
 
     return {
-        original: PROMPTS[messageType]?.core || '(custom)',
+        original: prompts[messageType]?.core || '(custom)',
         variant,
         voice: voiceName,
         audio_url: audioUrl,
@@ -294,15 +299,13 @@ async function generateAnnouncement(messageType, config, audioDir, opts = {}) {
     };
 }
 
-/**
- * Preview: generate variant text only (no audio, random voice picked for display)
- */
 async function previewAnnouncement(messageType, config, opts = {}) {
     const aiConfig     = config.gemini || {};
     const elevenConfig = config.elevenlabs || {};
+    const prompts      = getPrompts(config);
 
     const variant = await generateVariant(
-        messageType, aiConfig, opts.coreOverride, opts.toneOverride
+        messageType, aiConfig, prompts, opts.coreOverride, opts.toneOverride
     );
 
     const voices = await getEnglishVoices(elevenConfig);
@@ -312,14 +315,16 @@ async function previewAnnouncement(messageType, config, opts = {}) {
 
     return {
         type: messageType,
-        original: PROMPTS[messageType]?.core || '(custom)',
+        original: prompts[messageType]?.core || '(custom)',
         variant,
         would_use_voice: voiceName
     };
 }
 
 module.exports = {
-    PROMPTS,
+    DEFAULT_PROMPTS,
+    getPrompts,
+    getAnnouncementsConfig,
     listMessageTypes,
     generateAnnouncement,
     previewAnnouncement,

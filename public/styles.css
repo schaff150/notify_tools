@@ -684,6 +684,89 @@ code {
 .text-sm { font-size: 12px; }
 .w-full { width: 100%; }
 
+/* ─── Collapsible Tool Sections ──────────────────────────────────────────────── */
+.tool-section {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    background: var(--card-bg);
+    overflow: hidden;
+}
+.tool-section[open] {
+    border-color: var(--accent);
+}
+.tool-summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.15s;
+}
+.tool-summary:hover {
+    background: var(--surface);
+}
+.tool-summary::marker {
+    color: var(--accent);
+}
+.summary-hint {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin-left: 4px;
+}
+.tool-body {
+    padding: 0 20px 20px 20px;
+}
+
+/* ─── Prompts Editor ─────────────────────────────────────────────────────────── */
+.prompt-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+    background: var(--surface);
+}
+.prompt-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.prompt-card-header code {
+    font-size: 13px;
+    color: var(--accent);
+    background: rgba(99,102,241,0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+.prompt-card .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.prompt-card .form-row-full {
+    grid-template-columns: 1fr;
+}
+.btn-delete {
+    background: transparent;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.btn-delete:hover {
+    background: rgba(239,68,68,0.15);
+}
+
 /* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

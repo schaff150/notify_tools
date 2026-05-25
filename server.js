@@ -467,9 +467,33 @@ app.get('/api/famguessr/preview', async (req, res) => {
 // List available announcement types
 app.get('/api/announcements/types', (req, res) => {
     try {
-        res.json(announcements.listMessageTypes());
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        res.json(announcements.listMessageTypes(config));
     } catch (e) {
         res.status(500).json({ error: 'Failed to list announcement types: ' + e.message });
+    }
+});
+
+// Get/set announcement config (prompts, etc.)
+app.get('/api/announcements/config', (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        res.json(announcements.getAnnouncementsConfig(config));
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to read announcements config: ' + e.message });
+    }
+});
+
+app.post('/api/announcements/config', (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        config.announcements = { ...config.announcements, ...req.body };
+        fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+        console.log(`[${ts()}] [announcements] Config saved.`);
+        res.json({ success: true });
+    } catch (e) {
+        console.error(`[${ts()}] [announcements] Config save error: ${e.message}`);
+        res.status(500).json({ error: e.message });
     }
 });
 
