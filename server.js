@@ -117,6 +117,7 @@ if (!fs.existsSync(configFile)) {
 const { handleJellyfinWebhook } = require('./workflows/jellyfin');
 const { handleArrWebhook }      = require('./workflows/arr_webhook');
 const famguessr                 = require('./workflows/famguessr');
+const announcements             = require('./workflows/announcements');
 
 // ─── Config API ───────────────────────────────────────────────────────────────
 
@@ -458,6 +459,61 @@ app.get('/api/famguessr/preview', async (req, res) => {
         });
     } catch (e) {
         res.status(500).json({ error: 'Failed to generate preview: ' + e.message });
+    }
+});
+
+// ─── Announcements Routes ──────────────────────────────────────────────────────
+
+// List available announcement types
+app.get('/api/announcements/types', (req, res) => {
+    try {
+        res.json(announcements.listMessageTypes());
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to list announcement types: ' + e.message });
+    }
+});
+
+// Generate full announcement (LLM variant → ElevenLabs TTS → MP3)
+app.post('/api/announcements/generate/:type', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const { core, tone } = req.body || {};
+
+        const result = await announcements.generateAnnouncement(
+            req.params.type, config, audioDir, { coreOverride: core, toneOverride: tone }
+        );
+
+        res.json(result);
+    } catch (e) {
+        console.error(`[${ts()}] [announcements] Generate error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// Preview announcement text only (no audio generated)
+app.get('/api/announcements/preview/:type', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const result = await announcements.previewAnnouncement(req.params.type, config);
+        res.json(result);
+    } catch (e) {
+        console.error(`[${ts()}] [announcements] Preview error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// List available random English voices (from ElevenLabs)
+app.get('/api/announcements/voices', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const voices = await announcements.getEnglishVoices(config.elevenlabs || {});
+        res.json({
+            count: voices.length,
+            voices: voices.map(v => ({ name: v.name, voice_id: v.voice_id, category: v.category }))
+        });
+    } catch (e) {
+        console.error(`[${ts()}] [announcements] Voices error: ${e.message}`);
+        res.status(500).json({ error: e.message });
     }
 });
 
