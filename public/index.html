@@ -565,6 +565,34 @@
                 </div>
 
             </div>
+
+            <!-- ── Announcements ── -->
+            <div class="card mt-3">
+                <h3>📢 Announcements</h3>
+                <p class="card-subtitle">Generate AI-customized voice announcements for Home Assistant. Each press creates a unique variant with a random ElevenLabs voice.</p>
+
+                <div class="form-group mt-2">
+                    <label>Announcement Type</label>
+                    <select id="announce-type" class="form-control">
+                        <option value="take_out_trash">🚮 Take Out Trash</option>
+                        <option value="dinner_time">🍽️ Dinner Time</option>
+                        <option value="bedtime">🌙 Bedtime</option>
+                        <option value="wake_up">☀️ Wake Up</option>
+                        <option value="general_reminder">🔔 General Reminder</option>
+                    </select>
+                </div>
+
+                <div style="display:flex;gap:10px;margin-top:12px;">
+                    <button id="btn-announce-generate" class="btn btn-primary" style="flex:1">🎙️ Generate & Test</button>
+                    <button id="btn-announce-preview" class="btn btn-secondary" style="flex:1">👁️ Preview Only</button>
+                </div>
+
+                <div id="announce-result" style="display:none;margin-top:12px;padding:12px;background:var(--surface,#1a1a2e);border-radius:8px;border:1px solid var(--border,#2a2a4a);">
+                    <div style="font-size:12px;color:var(--muted,#888);margin-bottom:4px;">RESULT</div>
+                    <div id="announce-variant" style="font-size:15px;font-weight:500;line-height:1.4;margin-bottom:6px;"></div>
+                    <div id="announce-meta" style="font-size:11px;color:var(--muted,#888);"></div>
+                </div>
+            </div>
         </section>
 
     </main>

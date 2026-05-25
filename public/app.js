@@ -524,6 +524,67 @@ document.getElementById('btn-famguessr-preview').addEventListener('click', async
     }
 });
 
+// ─── Announcements ─────────────────────────────────────────────────────────────
+
+// Generate full announcement (LLM + TTS)
+document.getElementById('btn-announce-generate').addEventListener('click', async () => {
+    const type = document.getElementById('announce-type').value;
+    const btn = document.getElementById('btn-announce-generate');
+    btn.innerHTML = '<span class="spinner"></span> Generating…';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch(`/api/announcements/generate/${type}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}' });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+        const box = document.getElementById('announce-result');
+        document.getElementById('announce-variant').textContent = `"${data.variant}"`;
+        const meta = [];
+        meta.push(`Voice: ${data.voice}`);
+        meta.push(`Original: "${data.original}"`);
+        if (data.audio_url) {
+            meta.push(`Audio: ${data.audio_url}`);
+            showToast('🎙️ Announcement generated with voice: ' + data.voice, 'success');
+        } else {
+            meta.push('⚠️ No audio — check API keys in Settings');
+            showToast('⚠️ Text generated but no audio — check API keys in Settings', 'error');
+        }
+        document.getElementById('announce-meta').textContent = meta.join('  ·  ');
+        box.style.display = 'block';
+    } catch (e) {
+        showToast(`Generate failed: ${e.message}`, 'error');
+    } finally {
+        btn.innerHTML = '🎙️ Generate & Test';
+        btn.disabled = false;
+    }
+});
+
+// Preview only (text, no audio)
+document.getElementById('btn-announce-preview').addEventListener('click', async () => {
+    const type = document.getElementById('announce-type').value;
+    const btn = document.getElementById('btn-announce-preview');
+    btn.innerHTML = '<span class="spinner"></span> Previewing…';
+    btn.disabled = true;
+
+    try {
+        const resp = await fetch(`/api/announcements/preview/${type}`);
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+
+        const box = document.getElementById('announce-result');
+        document.getElementById('announce-variant').textContent = `"${data.variant}"`;
+        document.getElementById('announce-meta').textContent = `Would use voice: ${data.would_use_voice}  ·  Original: "${data.original}"  ·  (no audio generated)`;
+        box.style.display = 'block';
+        showToast('👁️ Preview ready!', 'info');
+    } catch (e) {
+        showToast(`Preview failed: ${e.message}`, 'error');
+    } finally {
+        btn.innerHTML = '👁️ Preview Only';
+        btn.disabled = false;
+    }
+});
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function escHtml(str) {
