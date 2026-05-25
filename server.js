@@ -499,15 +499,15 @@ async function pushToHA(config) {
         const tmpFile = '/tmp/announcements.yaml';
         fs.writeFileSync(tmpFile, yaml);
 
-        // 3. SCP to HA
+        // 3. Push to HA via SSH (pipe through cat — works without sftp)
         const host = ha.host;
         const port = ha.port || 22;
         const user = ha.user || 'root';
         const target = `${user}@${host}:/config/packages/announcements.yaml`;
 
-        console.log(`[${ts()}] [announcements] SCP to HA: ${target}`);
+        console.log(`[${ts()}] [announcements] Pushing YAML to HA: ${host}:${port}`);
         execSync(
-            `scp -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes -i ${ha.ssh_key} -P ${port} ${tmpFile} ${target}`,
+            `cat ${tmpFile} | ssh -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes -i ${ha.ssh_key} -p ${port} ${user}@${host} 'cat > /config/packages/announcements.yaml'`,
             { timeout: 15000 }
         );
         console.log(`[${ts()}] [announcements] ✅ YAML pushed to HA.`);
