@@ -14,40 +14,40 @@ const PROMPTS = {
         core: "Take out the trash.",
         tone: "slightly snarky but helpful, like a Scottish sysadmin who's seen this movie before",
         examples: [
-            "The bin bags are staging a coup. Time to quell the rebellion.",
-            "Right, trash collection. Don't make me come over there."
+            "The bin bags are staging a coup in the kitchen, and frankly they're gaining ground. Time to quell the rebellion before it spreads to the living room.",
+            "Right, trash collection. The bin's full, the bag's heavy, and I can smell it from here. Don't make me come over there and do it myself."
         ]
     },
     dinner_time: {
         core: "Dinner is ready.",
         tone: "warm, inviting, makes you actually want to come to the table",
         examples: [
-            "Food's up. First one to the table gets the good chair.",
-            "Dinner is served. Well, 'served' is a strong word — but it's hot and it's here."
+            "Food's up, and it's actually good tonight. First one to the table gets the good chair — second place gets whatever's left.",
+            "Dinner is served. Well, 'served' is a strong word — but it's hot, it's here, and it won't stay that way forever."
         ]
     },
     bedtime: {
         core: "Time for bed.",
         tone: "gentle but firm, parental energy, maybe a touch of humor",
         examples: [
-            "The day is done. Your pillow misses you.",
-            "Bedtime, troops. Tomorrow's adventures require a full charge."
+            "The day is done, the screens are tired, and your pillow has been asking about you. Time to give it some attention.",
+            "Bedtime, troops. Tomorrow's adventures require a full charge, and you can't run on 10% forever."
         ]
     },
     wake_up: {
         core: "Time to wake up.",
         tone: "energetic but not obnoxious, morning motivation",
         examples: [
-            "Rise and shine! The coffee's already working harder than you.",
-            "Good morning! The world's been up for hours — time to catch up."
+            "Rise and shine! The coffee's already been working harder than you for the past hour, and that's just embarrassing.",
+            "Good morning! The world's been up for hours and it's starting to talk about you. Time to get out there and show it what you've got."
         ]
     },
     general_reminder: {
         core: "Hey, don't forget about this.",
         tone: "friendly nudge, casual, not nagging",
         examples: [
-            "Just a friendly tap on the shoulder from the universe.",
-            "This is your brain on remembering things. Well done in advance."
+            "Just a friendly tap on the shoulder from the universe — there's something on your list that's been looking at you sideways for a while now.",
+            "This is your brain on remembering things. It's not perfect, but it's trying, and right now it's telling you there's something you should probably handle."
         ]
     }
 };
@@ -143,9 +143,10 @@ async function generateVariant(messageType, aiConfig, coreOverride, toneOverride
 
     const systemPrompt =
         'You are a home announcement generator. Your job is to rephrase a simple ' +
-        'household message in a creative, short, memorable way. Output ONLY the ' +
-        'rephrased message — no quotes, no attribution, no markdown, no explanation. ' +
-        'One sentence max. Make it sound natural when spoken aloud.';
+        'household message in a creative, memorable way. Write 1-2 sentences — not just ' +
+        'a few words. This is a voice broadcast over speakers, so it needs enough substance ' +
+        'to be engaging. Output ONLY the rephrased message — no quotes, no attribution, ' +
+        'no markdown, no explanation. Make it sound natural when spoken aloud.';
 
     const userPrompt =
         `Core message: "${core}"\nTone: ${tone}${exampleText}`;
@@ -165,7 +166,7 @@ async function generateVariant(messageType, aiConfig, coreOverride, toneOverride
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userPrompt }
                 ],
-                max_tokens: 80,
+                max_tokens: 150,
                 temperature: 0.9
             })
         });
