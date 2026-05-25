@@ -142,6 +142,14 @@ app.post('/api/config', (req, res) => {
     try {
         const oldConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
         const wasFgEnabled = oldConfig.famguessr?.enable;
+
+        // Preserve runtime famguessr state that the UI doesn't send back
+        if (oldConfig.famguessr && req.body.famguessr) {
+            req.body.famguessr.last_send_date = oldConfig.famguessr.last_send_date;
+            req.body.famguessr.last_place = oldConfig.famguessr.last_place;
+            req.body.famguessr.daily_send_time = oldConfig.famguessr.daily_send_time;
+        }
+
         fs.writeFileSync(configFile, JSON.stringify(req.body, null, 2));
         console.log(`[${ts()}] [config] Configuration saved.`);
         // Toggle Famguessr scheduler if enable state changed
