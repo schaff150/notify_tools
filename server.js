@@ -541,6 +541,21 @@ app.get('/api/announcements/voices', async (req, res) => {
     }
 });
 
+// Generate Home Assistant packages/announcements.yaml from current prompts
+app.get('/api/announcements/ha-config', (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const speaker = req.query.speaker || undefined;
+        const yaml = announcements.generateHAConfig(config, speaker);
+        res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="announcements.yaml"');
+        res.send(yaml);
+    } catch (e) {
+        console.error(`[${ts()}] [announcements] HA config error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // ─── Start Server ─────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {

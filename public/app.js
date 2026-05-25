@@ -650,6 +650,15 @@ document.getElementById('btn-announce-save-prompts').addEventListener('click', a
     }
 });
 
+// Download HA config YAML
+document.getElementById('btn-announce-ha-download').addEventListener('click', () => {
+    const speaker = prompt('Speaker entity ID:', 'media_player.upstairs_landing_speaker');
+    if (speaker === null) return;  // cancelled
+    const url = `/api/announcements/ha-config?speaker=${encodeURIComponent(speaker.trim() || 'media_player.upstairs_landing_speaker')}`;
+    window.open(url, '_blank');
+    showToast('📥 Downloading announcements.yaml — place in HA /config/packages/', 'info');
+});
+
 // Generate full announcement (LLM + TTS)
 document.getElementById('btn-announce-generate').addEventListener('click', async () => {
     const type = document.getElementById('announce-type').value;
