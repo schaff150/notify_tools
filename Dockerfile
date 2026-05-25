@@ -2,8 +2,8 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install system deps (su-exec for permission management)
-RUN apk add --no-cache su-exec
+# Install system deps (su-exec for permission management, openssh for HA SCP)
+RUN apk add --no-cache su-exec openssh-client
 
 # Install Node dependencies
 COPY package*.json ./

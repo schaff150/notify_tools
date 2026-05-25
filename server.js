@@ -88,6 +88,14 @@ const defaultConfig = {
         api_key: '',
         model:   'deepseek-v4-flash',
         base_url: 'https://api.deepseek.com/v1'   // OpenAI-compatible endpoint
+    },
+    ha: {
+        host: '192.168.0.138',
+        port: 22,
+        user: 'root',
+        ssh_key: '/app/ssh/id_ed25519',     // mount private key here
+        api_token: '',                       // HA long-lived access token
+        speaker: 'media_player.upstairs_landing_speaker'
     }
 };
 
@@ -462,6 +470,70 @@ app.get('/api/famguessr/preview', async (req, res) => {
     }
 });
 
+// ─── HA Auto-Deploy ────────────────────────────────────────────────────────────
+
+const { execSync } = require('child_process');
+
+/**
+ * Push announcements.yaml to Home Assistant via SCP and reload scripts via API.
+ * Silently fails if HA is unreachable or not configured.
+ */
+async function pushToHA(config) {
+    const ha = config.ha || {};
+    if (!ha.host || !ha.ssh_key || !ha.api_token) {
+        console.log(`[${ts()}] [announcements] HA push skipped — host/ssh_key/api_token not configured.`);
+        return;
+    }
+
+    const fs = require('fs');
+    if (!fs.existsSync(ha.ssh_key)) {
+        console.log(`[${ts()}] [announcements] HA push skipped — SSH key not found at ${ha.ssh_key}`);
+        return;
+    }
+
+    try {
+        // 1. Generate YAML
+        const yaml = announcements.generateHAConfig(config, ha.speaker);
+
+        // 2. Write temp file
+        const tmpFile = '/tmp/announcements.yaml';
+        fs.writeFileSync(tmpFile, yaml);
+
+        // 3. SCP to HA
+        const host = ha.host;
+        const port = ha.port || 22;
+        const user = ha.user || 'root';
+        const target = `${user}@${host}:/config/packages/announcements.yaml`;
+
+        console.log(`[${ts()}] [announcements] SCP to HA: ${target}`);
+        execSync(
+            `scp -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes -i ${ha.ssh_key} -P ${port} ${tmpFile} ${target}`,
+            { timeout: 15000 }
+        );
+        console.log(`[${ts()}] [announcements] ✅ YAML pushed to HA.`);
+
+        // 4. Reload scripts via HA REST API
+        const reloadResp = await fetch(`http://${host}:8123/api/services/homeassistant/reload_all`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${ha.api_token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (reloadResp.ok) {
+            console.log(`[${ts()}] [announcements] ✅ HA scripts reloaded.`);
+        } else {
+            console.log(`[${ts()}] [announcements] HA reload returned ${reloadResp.status} — scripts may need manual reload.`);
+        }
+
+        // Clean up temp file
+        fs.unlinkSync(tmpFile);
+    } catch (e) {
+        console.error(`[${ts()}] [announcements] HA push failed: ${e.message}`);
+        // Silently fail — user still gets "config saved" confirmation
+    }
+}
+
 // ─── Announcements Routes ──────────────────────────────────────────────────────
 
 // List available announcement types
@@ -490,6 +562,10 @@ app.post('/api/announcements/config', (req, res) => {
         config.announcements = { ...config.announcements, ...req.body };
         fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
         console.log(`[${ts()}] [announcements] Config saved.`);
+
+        // Auto-push to HA if configured
+        pushToHA(config).catch(e => console.error(`[${ts()}] [announcements] HA push error: ${e.message}`));
+
         res.json({ success: true });
     } catch (e) {
         console.error(`[${ts()}] [announcements] Config save error: ${e.message}`);
