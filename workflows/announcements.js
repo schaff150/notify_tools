@@ -148,7 +148,11 @@ shell_command:
     sequence:
       - action: shell_command.announce_${type}
 
-`;\n    }\n\n    return yaml;\n}
+`;
+    }
+
+    return yaml;
+}
 
 // ─── Voice Caching ────────────────────────────────────────────────────────────
 
