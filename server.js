@@ -112,6 +112,15 @@ if (!fs.existsSync(configFile)) {
                 existing[key] = defaultConfig[key];
                 changed = true;
                 console.log(`[${ts()}] [config] Seeded missing key: ${key}`);
+            } else if (key === 'ha' && typeof existing[key] === 'object') {
+                // Merge ha sub-keys — never nuke user's api_token
+                for (const sub of Object.keys(defaultConfig.ha)) {
+                    if (existing.ha[sub] === undefined) {
+                        existing.ha[sub] = defaultConfig.ha[sub];
+                        changed = true;
+                        console.log(`[${ts()}] [config] Seeded missing ha.${sub}`);
+                    }
+                }
             }
         }
         if (changed) fs.writeFileSync(configFile, JSON.stringify(existing, null, 2));
