@@ -552,7 +552,22 @@ function populateAnnounceDropdown() {
     }
 }
 
+function syncPromptsFromDOM() {
+    // Collect current UI values into announceConfig before any re-render
+    document.querySelectorAll('.prompt-card').forEach(card => {
+        const key = card.dataset.type;
+        if (!key) return;
+        const core = card.querySelector('.prompt-core')?.value?.trim() || '';
+        const tone = card.querySelector('.prompt-tone')?.value?.trim() || '';
+        const examples = (card.querySelector('.prompt-examples')?.value || '')
+            .split('\n').map(s => s.trim()).filter(s => s.length > 0);
+        announceConfig.prompts[key] = { core, tone, examples };
+    });
+}
+
 function renderPromptsEditor() {
+    // Sync any unsaved DOM edits before re-rendering
+    syncPromptsFromDOM();
     const list = document.getElementById('announce-prompts-list');
     const prompts = announceConfig.prompts || {};
     list.innerHTML = '';
