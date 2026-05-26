@@ -537,6 +537,21 @@ async function pushToHA(config) {
         );
         console.log(`[${ts()}] [announcements] ✅ YAML pushed to HA.`);
 
+        // 3b. Sync shell_commands to configuration.yaml (can't go in packages)
+        const prompts = announcements.getPrompts(config);
+        const types = Object.keys(prompts);
+        let syncCmds = '';
+        for (const t of types) {
+            syncCmds += `grep -q 'announce_${t}:' /config/configuration.yaml || echo '  announce_${t}: curl -s -X POST http://192.168.0.87:3322/api/announcements/generate-and-play/${t}' >> /config/configuration.yaml\n`;
+        }
+        const syncFile = '/tmp/sync-shell-cmds.sh';
+        fs.writeFileSync(syncFile, syncCmds);
+        execSync(
+            `cat ${syncFile} | ssh -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes -i ${ha.ssh_key} -p ${port} ${user}@${host} 'bash -s'`,
+            { timeout: 10000 }
+        );
+        console.log(`[${ts()}] [announcements] ✅ Shell commands synced to HA.`);
+
         // 4. Reload scripts via HA REST API
         const reloadResp = await fetch(`http://${host}:8123/api/services/homeassistant/reload_all`, {
             method: 'POST',
