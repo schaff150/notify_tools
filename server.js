@@ -640,6 +640,49 @@ app.get('/api/announcements/ha-config', (req, res) => {
     }
 });
 
+// Generate + auto-play on HA speaker
+app.post('/api/announcements/generate-and-play/:type', async (req, res) => {
+    try {
+        const config = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const { core, tone } = req.body || {};
+
+        const result = await announcements.generateAnnouncement(
+            req.params.type, config, audioDir, { coreOverride: core, toneOverride: tone }
+        );
+
+        // If audio was generated and HA is configured, play it
+        if (result.audio_url) {
+            const ha = config.ha || {};
+            if (ha.api_token) {
+                try {
+                    const speaker = ha.speaker || 'media_player.upstairs_landing_speaker';
+                    await fetch(`http://${ha.host || '192.168.0.138'}:8123/api/services/media_player/play_media`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${ha.api_token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            entity_id: speaker,
+                            media_content_id: result.audio_url,
+                            media_content_type: 'music',
+                            announce: true
+                        })
+                    });
+                    console.log(`[${ts()}] [announcements] ▶️ Playing on HA: ${speaker}`);
+                } catch (e) {
+                    console.error(`[${ts()}] [announcements] HA play error: ${e.message}`);
+                }
+            }
+        }
+
+        res.json(result);
+    } catch (e) {
+        console.error(`[${ts()}] [announcements] Generate-and-play error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // ─── Start Server ─────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {
