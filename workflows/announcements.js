@@ -127,15 +127,14 @@ function generateHAConfig(config, speakerEntityId) {
 # ${new Date().toISOString().split('T')[0]} — ${types.length} announcement types
 # Speaker: ${speaker}
 
-rest_command:
-  announcement_generate:
-    url: "http://192.168.0.87:3322/api/announcements/generate/{{ message_type }}"
-    method: POST
-    content_type: "application/json"
-    payload: '{}'
-
-script:
+shell_command:
 `;
+
+    for (const type of types) {
+        yaml += `  announce_${type}: curl -s -X POST http://192.168.0.87:3322/api/announcements/generate-and-play/${type}\n`;
+    }
+
+    yaml += `\nscript:\n`;
 
     for (const type of types) {
         const prompt = prompts[type];
@@ -147,27 +146,9 @@ script:
     alias: "${emoji} ${label}"
     icon: mdi:bullhorn
     sequence:
-      - action: rest_command.announcement_generate
-        data:
-          message_type: ${type}
-        response_variable: result
-      - action: media_player.play_media
-        target:
-          entity_id: ${speaker}
-        data:
-          media_content_id: "{{ result['audio_url'] }}"
-          media_content_type: music
-          announce: true
-      - delay: "00:01"
-      - action: media_player.media_stop
-        target:
-          entity_id: ${speaker}
+      - action: shell_command.announce_${type}
 
-`;
-    }
-
-    return yaml;
-}
+`;\n    }\n\n    return yaml;\n}
 
 // ─── Voice Caching ────────────────────────────────────────────────────────────
 
