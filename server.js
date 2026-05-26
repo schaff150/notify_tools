@@ -159,6 +159,14 @@ app.post('/api/config', (req, res) => {
             req.body.famguessr.daily_send_time = oldConfig.famguessr.daily_send_time;
         }
 
+        // Preserve announcements prompts and HA config that the UI doesn't send back
+        if (oldConfig.announcements) {
+            req.body.announcements = oldConfig.announcements;
+        }
+        if (oldConfig.ha) {
+            req.body.ha = oldConfig.ha;
+        }
+
         fs.writeFileSync(configFile, JSON.stringify(req.body, null, 2));
         console.log(`[${ts()}] [config] Configuration saved.`);
         // Toggle Famguessr scheduler if enable state changed
