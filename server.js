@@ -735,7 +735,7 @@ app.post('/api/announcements/generate-and-play/:type', async (req, res) => {
                                     data: {
                                         position: 'top-right',
                                         color: 'indigo',
-                                        duration: 15,
+                                        duration: 25,
                                         fontsize: 'large'
                                     }
                                 })
