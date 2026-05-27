@@ -235,53 +235,62 @@ async function generateVariant(messageType, aiConfig, prompts, coreOverride, ton
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-    try {
-        const resp = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${api_key}`
-            },
-            body: JSON.stringify({
-                model: model || 'deepseek-chat',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userPrompt }
-                ],
-                max_tokens: 150,
-                temperature: 0.9
-            }),
-            signal: controller.signal
-        });
-        clearTimeout(timeout);
+    // Retry once if content filter blocks the first attempt
+    for (let attempt = 0; attempt < 2; attempt++) {
+        const temp = attempt === 0 ? 0.9 : 0.7; // cooler retry
+        try {
+            const resp = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${api_key}`
+                },
+                body: JSON.stringify({
+                    model: model || 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userPrompt }
+                    ],
+                    max_tokens: 150,
+                    temperature: temp
+                }),
+                signal: controller.signal
+            });
 
-        if (!resp.ok) {
-            const errText = await resp.text();
-            log(`AI API error ${resp.status} on ${model || 'deepseek-chat'}: ${errText.substring(0, 200)}`);
+            if (!resp.ok) {
+                const errText = await resp.text();
+                log(`AI API error ${resp.status} on ${model || 'deepseek-chat'}: ${errText.substring(0, 200)}`);
+                clearTimeout(timeout);
+                return prompt.core;
+            }
+
+            const data = await resp.json();
+            const rawText = (data.choices?.[0]?.message?.content || '').trim();
+            const text = rawText.replace(/^["']|["']$/g, '');
+            const finishReason = data.choices?.[0]?.finish_reason || 'none';
+
+            if (text) {
+                log(`AI variant for "${messageType}" (finish=${finishReason}, attempt=${attempt + 1}): "${text}"`);
+                clearTimeout(timeout);
+                return text;
+            }
+
+            // Empty content — if content-filter (finish_reason=length), retry once
+            log(`AI empty content for "${messageType}" — finish_reason=${finishReason}, attempt=${attempt + 1}/2`);
+            if (finishReason !== 'length') break; // only retry content-filter blocks
+
+        } catch (e) {
+            clearTimeout(timeout);
+            if (e.name === 'AbortError') {
+                log(`AI fetch timeout (15s) for "${messageType}" on ${model || 'deepseek-chat'} — using fallback`);
+            } else {
+                log(`AI fetch error: ${e.message}`);
+            }
             return prompt.core;
-        }
-
-        const data = await resp.json();
-        const rawText = (data.choices?.[0]?.message?.content || '').trim();
-        const text = rawText.replace(/^["']|["']$/g, '');
-
-        if (text) {
-            log(`AI variant for "${messageType}": "${text}"`);
-            return text;
-        }
-
-        // Silent fallthrough — log what we actually got so we can debug
-        const finishReason = data.choices?.[0]?.finish_reason || 'none';
-        log(`AI returned empty content for "${messageType}" — finish_reason=${finishReason}, raw_choices=${data.choices?.length || 0}, response_keys=${Object.keys(data).join(',')}`);
-    } catch (e) {
-        clearTimeout(timeout);
-        if (e.name === 'AbortError') {
-            log(`AI fetch timeout (15s) for "${messageType}" on ${model || 'deepseek-chat'} — using fallback`);
-        } else {
-            log(`AI fetch error: ${e.message}`);
         }
     }
 
+    clearTimeout(timeout);
     return prompt.core;
 }
 
