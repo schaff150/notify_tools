@@ -715,6 +715,36 @@ app.post('/api/announcements/generate-and-play/:type', async (req, res) => {
                         })
                     });
                     console.log(`[${ts()}] [announcements] ▶️ Playing on HA: ${speaker}`);
+
+                    // Send AI-generated text to Android TV notifications
+                    const tvServices = (ha.tv_notify_services || [
+                        'notify.notifications_family_room_tv',
+                        'notify.android_tv_fire_tv_192_168_0_103'
+                    ]);
+                    for (const svc of tvServices) {
+                        try {
+                            await fetch(`http://${ha.host || '192.168.0.138'}:8123/api/services/notify/${svc.split('.').pop()}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${ha.api_token}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    message: result.variant,
+                                    title: 'JellyDad here!',
+                                    data: {
+                                        position: 'top-right',
+                                        color: 'indigo',
+                                        duration: 15,
+                                        fontsize: 'large'
+                                    }
+                                })
+                            });
+                            console.log(`[${ts()}] [announcements] 📺 Sent to TV: ${svc}`);
+                        } catch (tvErr) {
+                            console.error(`[${ts()}] [announcements] TV notify error (${svc}): ${tvErr.message}`);
+                        }
+                    }
                 } catch (e) {
                     console.error(`[${ts()}] [announcements] HA play error: ${e.message}`);
                 }
