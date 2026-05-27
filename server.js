@@ -688,6 +688,19 @@ app.post('/api/announcements/generate-and-play/:type', async (req, res) => {
             if (ha.api_token) {
                 try {
                     const speaker = ha.speaker || 'media_player.upstairs_landing_speaker';
+                    // Set volume to 0.8 before playing announcement
+                    await fetch(`http://${ha.host || '192.168.0.138'}:8123/api/services/media_player/volume_set`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${ha.api_token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            entity_id: speaker,
+                            volume_level: 0.8
+                        })
+                    });
+                    console.log(`[${ts()}] [announcements] 🔊 Volume set to 0.8 on ${speaker}`);
                     await fetch(`http://${ha.host || '192.168.0.138'}:8123/api/services/media_player/play_media`, {
                         method: 'POST',
                         headers: {

@@ -230,44 +230,82 @@ async function generateVariant(messageType, aiConfig, prompts, coreOverride, ton
     const userPrompt =
         `Core message: "${core}"\nTone: ${tone}${exampleText}`;
 
-    const apiUrl = `${(base_url || 'https://api.deepseek.com/v1').replace(/\/$/, '')}/chat/completions`;
-
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+    // Detect API type: Gemini native vs OpenAI-compatible
+    const isGeminiNative = !base_url || base_url.includes('generativelanguage.googleapis.com');
 
     // Retry once if content filter blocks the first attempt
     for (let attempt = 0; attempt < 2; attempt++) {
         const temp = attempt === 0 ? 0.9 : 0.7; // cooler retry
         try {
-            const resp = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${api_key}`
-                },
-                body: JSON.stringify({
-                    model: model || 'deepseek-chat',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userPrompt }
-                    ],
-                    max_tokens: 150,
-                    temperature: temp
-                }),
-                signal: controller.signal
-            });
+            let resp, data, rawText, text, finishReason;
 
-            if (!resp.ok) {
-                const errText = await resp.text();
-                log(`AI API error ${resp.status} on ${model || 'deepseek-chat'}: ${errText.substring(0, 200)}`);
-                clearTimeout(timeout);
-                return prompt.core;
+            if (isGeminiNative) {
+                // ── Gemini native API ──
+                const geminiModel = model || 'gemini-2.5-flash';
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${api_key}`;
+                const geminiBody = {
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ parts: [{ text: userPrompt }] }],
+                    generationConfig: { maxOutputTokens: 150, temperature: temp }
+                };
+
+                resp = await fetch(geminiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(geminiBody),
+                    signal: controller.signal
+                });
+
+                if (!resp.ok) {
+                    const errText = await resp.text();
+                    log(`Gemini API error ${resp.status} on ${geminiModel}: ${errText.substring(0, 200)}`);
+                    clearTimeout(timeout);
+                    return prompt.core;
+                }
+
+                data = await resp.json();
+                const candidate = (data.candidates || [])[0] || {};
+                rawText = ((candidate.content || {}).parts || []).map(p => p.text).join('').trim();
+                text = rawText.replace(/^["']|["']$/g, '');
+                finishReason = (candidate.finishReason || 'none').toLowerCase();
+
+            } else {
+                // ── OpenAI-compatible API (DeepSeek, etc.) ──
+                const apiUrl = `${base_url.replace(/\/$/, '')}/chat/completions`;
+
+                resp = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${api_key}`
+                    },
+                    body: JSON.stringify({
+                        model: model || 'deepseek-chat',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userPrompt }
+                        ],
+                        max_tokens: 150,
+                        temperature: temp
+                    }),
+                    signal: controller.signal
+                });
+
+                if (!resp.ok) {
+                    const errText = await resp.text();
+                    log(`AI API error ${resp.status} on ${model || 'deepseek-chat'}: ${errText.substring(0, 200)}`);
+                    clearTimeout(timeout);
+                    return prompt.core;
+                }
+
+                data = await resp.json();
+                rawText = (data.choices?.[0]?.message?.content || '').trim();
+                text = rawText.replace(/^["']|["']$/g, '');
+                finishReason = data.choices?.[0]?.finish_reason || 'none';
             }
-
-            const data = await resp.json();
-            const rawText = (data.choices?.[0]?.message?.content || '').trim();
-            const text = rawText.replace(/^["']|["']$/g, '');
-            const finishReason = data.choices?.[0]?.finish_reason || 'none';
 
             if (text) {
                 log(`AI variant for "${messageType}" (finish=${finishReason}, attempt=${attempt + 1}): "${text}"`);
@@ -275,14 +313,14 @@ async function generateVariant(messageType, aiConfig, prompts, coreOverride, ton
                 return text;
             }
 
-            // Empty content — if content-filter (finish_reason=length), retry once
+            // Empty content — if content-filter (finish_reason=length or SAFETY), retry once
             log(`AI empty content for "${messageType}" — finish_reason=${finishReason}, attempt=${attempt + 1}/2`);
-            if (finishReason !== 'length') break; // only retry content-filter blocks
+            if (finishReason !== 'length' && finishReason !== 'safety') break;
 
         } catch (e) {
             clearTimeout(timeout);
             if (e.name === 'AbortError') {
-                log(`AI fetch timeout (15s) for "${messageType}" on ${model || 'deepseek-chat'} — using fallback`);
+                log(`AI fetch timeout (15s) for "${messageType}" on ${model || 'gemini-2.5-flash'} — using fallback`);
             } else {
                 log(`AI fetch error: ${e.message}`);
             }
