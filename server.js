@@ -697,10 +697,10 @@ app.post('/api/announcements/generate-and-play/:type', async (req, res) => {
                         },
                         body: JSON.stringify({
                             entity_id: speaker,
-                            volume_level: 0.8
+                            volume_level: 1.0
                         })
                     });
-                    console.log(`[${ts()}] [announcements] 🔊 Volume set to 0.8 on ${speaker}`);
+                    console.log(`[${ts()}] [announcements] 🔊 Volume set to 1.0 on ${speaker}`);
                     await fetch(`http://${ha.host || '192.168.0.138'}:8123/api/services/media_player/play_media`, {
                         method: 'POST',
                         headers: {
