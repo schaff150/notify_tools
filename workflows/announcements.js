@@ -249,7 +249,7 @@ async function generateVariant(messageType, aiConfig, prompts, coreOverride, ton
                 const geminiBody = {
                     systemInstruction: { parts: [{ text: systemPrompt }] },
                     contents: [{ parts: [{ text: userPrompt }] }],
-                    generationConfig: { maxOutputTokens: 250, temperature: temp }
+                    generationConfig: { maxOutputTokens: 8192, temperature: temp }
                 };
 
                 resp = await fetch(geminiUrl, {
