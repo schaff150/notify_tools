@@ -291,6 +291,16 @@ async function generateVariant(messageType, aiConfig, prompts, coreOverride, ton
     }
 
     clearTimeout(timeout);
+
+    // All AI attempts failed — use a random example if available, otherwise core
+    const fallbackExamples = (prompt.examples || []).filter(e => e && e !== prompt.core);
+    if (fallbackExamples.length > 0) {
+        const pick = fallbackExamples[Math.floor(Math.random() * fallbackExamples.length)];
+        log(`AI all attempts failed for "${messageType}" — using random example fallback`);
+        return pick;
+    }
+
+    log(`AI all attempts failed for "${messageType}" — using core fallback`);
     return prompt.core;
 }
 
