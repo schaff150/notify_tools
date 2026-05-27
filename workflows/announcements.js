@@ -232,6 +232,9 @@ async function generateVariant(messageType, aiConfig, prompts, coreOverride, ton
 
     const apiUrl = `${(base_url || 'https://api.deepseek.com/v1').replace(/\/$/, '')}/chat/completions`;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
     try {
         const resp = await fetch(apiUrl, {
             method: 'POST',
@@ -247,24 +250,36 @@ async function generateVariant(messageType, aiConfig, prompts, coreOverride, ton
                 ],
                 max_tokens: 150,
                 temperature: 0.9
-            })
+            }),
+            signal: controller.signal
         });
+        clearTimeout(timeout);
 
         if (!resp.ok) {
             const errText = await resp.text();
-            log(`AI API error ${resp.status}: ${errText.substring(0, 200)}`);
+            log(`AI API error ${resp.status} on ${model || 'deepseek-chat'}: ${errText.substring(0, 200)}`);
             return prompt.core;
         }
 
         const data = await resp.json();
-        const text = (data.choices?.[0]?.message?.content || '').trim().replace(/^["']|["']$/g, '');
+        const rawText = (data.choices?.[0]?.message?.content || '').trim();
+        const text = rawText.replace(/^["']|["']$/g, '');
 
         if (text) {
             log(`AI variant for "${messageType}": "${text}"`);
             return text;
         }
+
+        // Silent fallthrough — log what we actually got so we can debug
+        const finishReason = data.choices?.[0]?.finish_reason || 'none';
+        log(`AI returned empty content for "${messageType}" — finish_reason=${finishReason}, raw_choices=${data.choices?.length || 0}, response_keys=${Object.keys(data).join(',')}`);
     } catch (e) {
-        log(`AI fetch error: ${e.message}`);
+        clearTimeout(timeout);
+        if (e.name === 'AbortError') {
+            log(`AI fetch timeout (15s) for "${messageType}" on ${model || 'deepseek-chat'} — using fallback`);
+        } else {
+            log(`AI fetch error: ${e.message}`);
+        }
     }
 
     return prompt.core;
