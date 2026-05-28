@@ -732,7 +732,9 @@ app.post('/api/announcements/generate-and-play/:type', async (req, res) => {
                     // Send AI-generated text to Android TV notifications
                     const tvServices = (ha.tv_notify_services || [
                         'notify.notifications_family_room_tv',
-                        'notify.android_tv_fire_tv_192_168_0_103'
+                        'notify.android_tv_fire_tv_192_168_0_103',
+                        'notify.android_tv_fire_tv_192_168_0_32',
+                        'notify.android_tv_fire_tv_192_168_0_64'
                     ]);
                     for (const svc of tvServices) {
                         try {
