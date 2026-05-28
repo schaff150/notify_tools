@@ -100,6 +100,8 @@ function populateUI(cfg) {
     const fg = cfg.famguessr || {};
     setChecked('famguessr-enable',   fg.enable           ?? false);
     setVal('famguessr-template',     fg.message_template ?? 'Hey it is {day}{time} in {city}, {country}, have you done your FamGuessr yet?');
+    setVal('famguessr-window-start', fg.daily_window_start ?? '06:00');
+    setVal('famguessr-window-end',   fg.daily_window_end   ?? '12:00');
 
     // ── Arr AI / Audio
     setVal('arr-gemini-personality', cfg.arr?.gemini_personality ?? '');
@@ -223,8 +225,10 @@ function buildConfigFromUI() {
             model:    getVal('gemini-model') || 'deepseek-v4-flash'
         },
         famguessr: {
-            enable:           document.getElementById('famguessr-enable').checked,
-            message_template: getVal('famguessr-template') || 'Hey it is {day}{time} in {city}, {country}, have you done your FamGuessr yet?'
+            enable:              document.getElementById('famguessr-enable').checked,
+            message_template:    getVal('famguessr-template') || 'Hey it is {day}{time} in {city}, {country}, have you done your FamGuessr yet?',
+            daily_window_start:  getVal('famguessr-window-start') || '06:00',
+            daily_window_end:    getVal('famguessr-window-end')   || '12:00'
         }
     };
 }

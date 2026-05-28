@@ -575,6 +575,8 @@ function getFamguessrConfig(dataDir) {
         enable: false,
         message_template: 'Hey it is {day}{time} in {city}, {country}, have you done your FamGuessr yet?',
         daily_send_time: null,
+        daily_window_start: '06:00',
+        daily_window_end: '12:00',
         last_send_date: null,
         last_place: null
     };
@@ -785,11 +787,21 @@ async function sendFamguessrToTag(config, tag, dataDir, notifier) {
 let cronJob = null;
 
 /**
- * Compute a random time in HH:MM format between 06:00 and 12:00.
+ * Compute a random time in HH:MM format between given start and end bounds.
+ * @param {string} start - HH:MM (e.g. "06:00")
+ * @param {string} end   - HH:MM (e.g. "12:00")
  */
-function randomDailyTime() {
-    const h = 6 + Math.floor(Math.random() * 6); // 6–11 (strictly within 06:00-12:00)
-    const m = Math.floor(Math.random() * 60);
+function randomDailyTime(start, end) {
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const startMin = sh * 60 + sm;
+    const endMin   = eh * 60 + em;
+    // Handle overnight wraps (e.g. 22:00–02:00)
+    const range = endMin > startMin ? endMin - startMin : (24 * 60) - startMin + endMin;
+    const rand = Math.floor(Math.random() * range);
+    const total = (startMin + rand) % (24 * 60);
+    const h = Math.floor(total / 60);
+    const m = total % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
@@ -816,18 +828,40 @@ function setupScheduler(dataDir) {
     const alreadySentToday = (fc.last_send_date === today);
 
     // Determine the send time
+    const windowStart = fc.daily_window_start || '06:00';
+    const windowEnd   = fc.daily_window_end   || '12:00';
     let sendTime = fc.daily_send_time;
 
     if (!sendTime) {
-        // Generate a fresh random time
-        sendTime = randomDailyTime();
-        log(`Generated new send time: ${sendTime}`);
+        // Generate a fresh random time within the configured window
+        sendTime = randomDailyTime(windowStart, windowEnd);
+        log(`Generated new send time: ${sendTime} (window ${windowStart}–${windowEnd})`);
         const fullConfig = loadConfig(dataDir);
         fullConfig.famguessr = fullConfig.famguessr || {};
         fullConfig.famguessr.daily_send_time = sendTime;
         saveConfig(dataDir, fullConfig);
     } else {
-        log(`Using stored send time: ${sendTime}`);
+        // Validate stored time is within the current window; if not, regenerate
+        const [sh, sm] = sendTime.split(':').map(Number);
+        const [wsh, wsm] = windowStart.split(':').map(Number);
+        const [weh, wem] = windowEnd.split(':').map(Number);
+        const sendMins = sh * 60 + sm;
+        const startMins = wsh * 60 + wsm;
+        const endMins = weh * 60 + wem;
+        const inWindow = endMins > startMins
+            ? (sendMins >= startMins && sendMins < endMins)
+            : (sendMins >= startMins || sendMins < endMins); // overnight wrap
+        if (!inWindow) {
+            const oldTime = sendTime;
+            sendTime = randomDailyTime(windowStart, windowEnd);
+            log(`Stored time ${oldTime} outside window ${windowStart}–${windowEnd} — regenerated to ${sendTime}`);
+            const fullConfig = loadConfig(dataDir);
+            fullConfig.famguessr = fullConfig.famguessr || {};
+            fullConfig.famguessr.daily_send_time = sendTime;
+            saveConfig(dataDir, fullConfig);
+        } else {
+            log(`Using stored send time: ${sendTime}`);
+        }
     }
 
     const [sh, sm] = sendTime.split(':').map(Number);

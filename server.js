@@ -171,7 +171,14 @@ app.post('/api/config', (req, res) => {
         console.log(`[${ts()}] [config] Configuration saved.`);
         // Toggle Famguessr scheduler if enable state changed
         const newFgEnabled = req.body.famguessr?.enable;
-        if (wasFgEnabled !== newFgEnabled) {
+        const oldWindowStart = oldConfig.famguessr?.daily_window_start;
+        const oldWindowEnd   = oldConfig.famguessr?.daily_window_end;
+        const newWindowStart = req.body.famguessr?.daily_window_start;
+        const newWindowEnd   = req.body.famguessr?.daily_window_end;
+        const windowChanged = (newWindowStart && newWindowStart !== oldWindowStart) ||
+                              (newWindowEnd   && newWindowEnd   !== oldWindowEnd);
+
+        if (wasFgEnabled !== newFgEnabled || (newFgEnabled && windowChanged)) {
             if (newFgEnabled) {
                 console.log(`[${ts()}] [config] Famguessr enabled — starting scheduler.`);
                 famguessr.setupScheduler(dataDir);
@@ -400,13 +407,19 @@ app.get('/api/famguessr/config', (req, res) => {
 app.post('/api/famguessr/config', (req, res) => {
     try {
         const fullConfig = JSON.parse(fs.readFileSync(configFile, 'utf8'));
+        const oldFg = fullConfig.famguessr || {};
         fullConfig.famguessr = { ...fullConfig.famguessr, ...req.body };
         fs.writeFileSync(configFile, JSON.stringify(fullConfig, null, 2));
         console.log(`[${ts()}] [famguessr] Config saved.`);
 
-        // Handle enable/disable toggle: start or stop scheduler
-        if (req.body.enable !== undefined) {
-            if (req.body.enable) {
+        const newFg = fullConfig.famguessr || {};
+        const enableChanged = req.body.enable !== undefined && req.body.enable !== oldFg.enable;
+        const windowChanged = (req.body.daily_window_start && req.body.daily_window_start !== oldFg.daily_window_start) ||
+                              (req.body.daily_window_end   && req.body.daily_window_end   !== oldFg.daily_window_end);
+
+        // Handle enable/disable toggle or window change: restart scheduler
+        if (enableChanged || (newFg.enable && windowChanged)) {
+            if (newFg.enable) {
                 famguessr.setupScheduler(dataDir);
             } else {
                 famguessr.stopScheduler();

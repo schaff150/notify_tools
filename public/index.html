@@ -501,7 +501,11 @@
 
                         <div class="form-group mt-3">
                             <label>Daily Send Window</label>
-                            <input type="text" class="form-control" value="06:00 – 12:00" readonly disabled style="background:var(--surface, #1a1a2e);opacity:0.7;">
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="time" id="famguessr-window-start" class="form-control" style="flex:1;">
+                                <span style="color:var(--muted,#888);">–</span>
+                                <input type="time" id="famguessr-window-end" class="form-control" style="flex:1;">
+                            </div>
                             <p class="form-hint">A random time within this window is picked each day. Same time for all family members.</p>
                         </div>
                     </div>
