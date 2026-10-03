@@ -3,3 +3,10 @@ data/
 audio/
 *.log
 .env
+.env.*
+!.env.example
+ssh/
+github_workflow.txt
+*_history.json
+__pycache__/
+*.pyc

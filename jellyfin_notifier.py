@@ -9,34 +9,25 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-# --- CONFIGURATION ---
-# Jellyfin API Setup
-JELLYFIN_URL = "http://192.168.0.87:8096"
-JELLYFIN_API_KEY = "043a53a028ae4b07a2b7607bcb562e8e"
+# --- OPTIONAL LEGACY CONFIGURATION ---
+# Credentials and personal recipients must be supplied externally, never committed.
+JELLYFIN_URL = os.environ.get("JELLYFIN_URL", "http://localhost:8096")
+JELLYFIN_API_KEY = os.environ.get("JELLYFIN_API_KEY", "")
 
 # History Tracking (prevents Tdarr duplicates)
-HISTORY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'jellydad_history.json')
-
-# Jellyfin Tags Mapping
-NOTIFY_MAP = {
-    "notify-dad": "5403940182@msg.fi.google.com",
-    "notify-anna": "5409149059@msg.fi.google.com",
-    "notify-jack": "5402529964@msg.fi.google.com",
-    "notify-gin": "5406454042@msg.fi.google.com",
-}
-
-# Overseerr/Seerr Username Mapping
+HISTORY_FILE = os.environ.get("JELLYFIN_HISTORY_FILE", os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'jellydad_history.json'))
+NOTIFY_MAP = json.loads(os.environ.get("NOTIFY_MAP_JSON", "{}"))
 SEERR_USER_MAP = {
     "1-geocode": "notify-dad",
     "2-jellyanna": "notify-anna",
     "4-jellyjack": "notify-jack",
     "3-jellygin": "notify-gin",
 }
-
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_USER = "schaffersteve150@gmail.com"
-SMTP_PASS = "fmbr gjiu revw wdzq"
+SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASS = os.environ.get("SMTP_PASS", "")
 
 def log_it(msg):
     print(msg)
@@ -59,13 +50,15 @@ def save_history(history_list):
         log_it(f"Jellydad error saving history: {e}")
 
 def get_tags_from_api(item_id):
-    if not item_id or JELLYFIN_API_KEY == "YOUR_API_KEY_HERE":
+    if not item_id or not JELLYFIN_API_KEY or JELLYFIN_API_KEY == "YOUR_API_KEY_HERE":
         return []
         
-    url = f"{JELLYFIN_URL}/Items?Ids={item_id}&Fields=Tags&api_key={JELLYFIN_API_KEY}"
+    url = f"{JELLYFIN_URL}/Items?Ids={item_id}&Fields=Tags"
     
     try:
-        req = urllib.request.Request(url)
+        req = urllib.request.Request(url, headers={
+            "Authorization": f'MediaBrowser Token="{JELLYFIN_API_KEY}"'
+        })
         with urllib.request.urlopen(req) as response:
             data = json.loads(response.read().decode())
             if data.get('Items') and len(data['Items']) > 0:

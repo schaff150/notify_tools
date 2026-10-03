@@ -1,0 +1,15 @@
+.git
+.github
+.gitignore
+node_modules
+data
+audio
+ssh
+.env
+.env.*
+*.log
+*_history.json
+__pycache__
+*.pyc
+github_setup.txt
+github_workflow.txt

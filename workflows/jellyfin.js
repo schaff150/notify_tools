@@ -34,10 +34,12 @@ async function getTagsFromApi(jellyfinUrl, apiKey, itemId, label) {
         log(`API tag fetch skipped for ${label} — missing itemId, apiKey, or url.`);
         return [];
     }
-    const url = `${jellyfinUrl}/Items?Ids=${itemId}&Fields=Tags&api_key=${apiKey}`;
+    const url = `${jellyfinUrl}/Items?Ids=${itemId}&Fields=Tags`;
     log(`Fetching tags from Jellyfin API for ${label} (id: ${itemId})…`);
     try {
-        const resp = await fetch(url);
+        const resp = await fetch(url, {
+            headers: { 'Authorization': `MediaBrowser Token="${apiKey}"` }
+        });
         if (!resp.ok) {
             warn(`Jellyfin API returned HTTP ${resp.status} for ${label} (id: ${itemId})`);
             return [];

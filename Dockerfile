@@ -7,7 +7,7 @@ RUN apk add --no-cache su-exec openssh-client
 
 # Install Node dependencies
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 # Copy application source
 COPY . .
